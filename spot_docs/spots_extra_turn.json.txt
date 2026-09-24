@@ -1,0 +1,12 @@
+spots_extra_turn.json
+=====================
+
+Intent
+------
+Roll-6 decision behavior: bring out new token or move an existing token.
+
+Primary metrics
+---------------
+- `bring_out_rate`
+- `move_existing_rate`
+- `llm_invalid_rate`

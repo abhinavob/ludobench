@@ -1,0 +1,81 @@
+Ludo Rules Used In This Codebase
+================================
+
+Scope
+-----
+This file documents the rules implemented in `ludo_env.py` and used by spot evaluation.
+
+Players And Tokens
+------------------
+- Supported players: 2 to 4.
+- Player ids: subset of `{0,1,2,3}` based on active game setup.
+- Tokens per player: 4.
+- Win condition: all 4 tokens of a player must reach that player's `home_end`.
+
+Board Model
+-----------
+- Main circular board: 52 squares indexed `0..51`.
+- Base: `-1`.
+- Home paths (private per player):
+  - Player 0: `52..57` (`home_end=57`)
+  - Player 1: `58..63` (`home_end=63`)
+  - Player 2: `64..69` (`home_end=69`)
+  - Player 3: `70..75` (`home_end=75`)
+- Start squares:
+  - Player 0 -> `0`
+  - Player 1 -> `13`
+  - Player 2 -> `26`
+  - Player 3 -> `39`
+
+Dice And Turn Flow
+------------------
+- Dice roll is `1..6`.
+- Rolling `6` gives an extra turn (same player continues).
+- If no legal move exists:
+  - with non-6 roll: turn passes to next player;
+  - with roll 6: same player continues (extra-turn rule still applies).
+
+Movement Rules
+--------------
+- From base (`-1`): token can enter only on dice `6`; it lands on that player's start square.
+- On main board (`0..51`): movement is forward relative to player's own start.
+- After one full relative lap (`52` steps), token enters that player's private home path.
+- Home entry and home-path progression require exact landing.
+- Overshooting `home_end` is illegal.
+
+Legal Move Constraints
+----------------------
+A move is legal only if:
+- it follows movement rules above, and
+- if destination is a NON-safe main-board square, it does not land on a square
+  already occupied by the same player's token.
+
+Stacking Policy
+---------------
+- Same-player stacking is allowed on safe squares.
+- Same-player stacking is allowed in home-path squares.
+- On NON-safe main-board squares, same-player stacking is blocked.
+
+Safe Squares
+------------
+- Safe squares: `{0, 8, 13, 21, 26, 34, 39, 47}`.
+- Tokens on safe squares are protected from capture.
+
+Capture Rules
+-------------
+- Capture applies only on main-board non-safe squares.
+- If a moved token lands on opponent token(s) there, those opponent token(s) are sent to base (`-1`).
+- No capture on safe squares.
+- No capture inside any home path.
+
+Extra Turns
+-----------
+- Extra turn is granted only by rolling `6`.
+- No extra turn for capture.
+- No extra turn for reaching home.
+
+Not Implemented
+---------------
+- No star-jump shortcuts.
+- No blockades/walls.
+- No additional regional rule variants beyond the above.

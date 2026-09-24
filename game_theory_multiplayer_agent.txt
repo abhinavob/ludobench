@@ -1,0 +1,52 @@
+GameTheoryMultiplayerAgent Documentation
+=======================================
+
+File
+----
+Implementation: `game_theory_multiplayer_agent.py`
+Class: `GameTheoryMultiplayerAgent`
+
+Purpose
+-------
+Provides a multiplayer game-theory approximation for Ludo spot/full-state decisions.
+
+Behavior by player count
+------------------------
+- 2 players: delegates to `GameTheoryAgent` (exact existing 2-player behavior preserved).
+- 3/4 players: uses Expectimax-MaxN recursion.
+
+Core recursion model
+--------------------
+- Decision node: current player selects action maximizing its own utility component.
+- Chance node: averages outcomes over dice {1..6} with uniform probability.
+- Terminal node: winner gets +1; others share negative mass equally.
+- Depth cutoff: vector-valued heuristic evaluator.
+
+Evaluator shape
+---------------
+Each player gets a raw score from:
+- progress
+- finished tokens
+- base-token penalty
+- safe-square count
+
+Vector normalization:
+- subtract mean score across players to produce centered utilities.
+
+Legal-move/capture policy
+-------------------------
+Mirrors engine rules:
+- stacking allowed on safe squares and in home path
+- stacking blocked on non-safe main-board squares
+- capture only on non-safe main-board squares
+
+Where used
+----------
+- `run_all_spots_gt.py` uses this agent for spot-level GT runs.
+- Output includes `gt_mode`:
+  - `expectiminimax_2p`
+  - `expectimaxn_multiplayer`
+
+Important limitation
+--------------------
+This is an approximation for multiplayer general-sum play, not a proved global equilibrium solver.

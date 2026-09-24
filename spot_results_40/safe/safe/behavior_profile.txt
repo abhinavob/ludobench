@@ -1,0 +1,12 @@
+Behavior Profile (Category)
+============================
+
+Total spots: 40
+Valid spots: 27
+
+llm_invalid_rate: 0.325
+
+safe:
+  safe_rate: 0.704
+  other_rate: 0.296
+

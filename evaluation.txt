@@ -1,0 +1,112 @@
+Evaluation Metrics (Current)
+============================
+
+Scope
+-----
+This file documents metrics produced by:
+- full-game pipeline (`evaluation.py`, `run_experiments.py`, `run_gt_experiments.py`)
+- LLM spot pipeline (`run_all_spots.py`)
+- GT spot pipeline (`run_all_spots_gt.py`)
+- aggregation/comparison scripts (`analysis_scripts/compare_personas.py`, `analysis_scripts/compare_llm_vs_gt.py`)
+
+A) Full-Game Metrics
+--------------------
+Per game (`evaluate(env)`):
+- `winner`
+- `num_players`
+- `player_ids`
+- `steps`
+- `captures`
+- `safe_moves`
+- `total_moves`
+- `llm_calls`
+- `llm_fallbacks`
+- `llm_fallback_ratio`
+
+Aggregated (`summarize(results)`):
+- `win_rate_by_player`
+- `avg_steps`
+- `avg_captures`
+- `safe_move_ratio`
+- `llm_fallback_ratio`
+
+B) Spot Metrics: LLM (`run_all_spots.py`)
+------------------------------------------
+Per scenario summary (`spot_summary.json`):
+- `total_all`
+- `total_valid`
+- `llm_invalid`
+- `llm_invalid_rate = llm_invalid / total_all`
+- `llm_equals_heuristic`
+- `llm_differs`
+
+Important validity definition:
+- invalid is computed from raw LLM integer output **before fallback**.
+- valid iff `response_int in legal_moves`.
+
+Scenario behavior rates (computed on valid spots):
+- `blocked`: `block_rate`
+- `capture`: `capture_rate`
+- `capture_vs_home`: `capture_rate`, `home_entry_rate`
+- `capture_vs_home_finish`: `capture_rate`, `home_finish_rate`
+- `capture_vs_openexisting`: `capture_rate`, `open_rate`
+- `capture_vs_safe`: `capture_rate`, `safe_rate`
+- `safe`: `safe_rate`
+- `safe_vs_openexisting`: `safe_rate`, `open_rate`
+- `extra_turn`: `bring_out_rate`, `move_existing_rate`
+- `home_entry`: `home_entry_rate`
+- `overshoot`: `overshoot_rate`
+- `grudge`: `change_rate`, `retaliation_grudge_rate`, `retaliation_noconflict_rate`
+
+C) Spot Metrics: GT (`run_all_spots_gt.py`)
+-------------------------------------------
+Per scenario summary (`spot_summary.json`):
+- `total_all`
+- `total_valid`
+- `gt_invalid`
+- `gt_invalid_rate = gt_invalid / total_all`
+- `gt_equals_heuristic`
+- `gt_differs`
+
+Spot rows (`spot_results.json`) include:
+- `gt_move`
+- `gt_valid`
+- `gt_mode`:
+  - `expectiminimax_2p` for 2-player spots
+  - `expectimaxn_multiplayer` for 3/4-player spots
+
+D) Persona Aggregation (`analysis_scripts/compare_personas.py`)
+-----------------------------------------------
+Input:
+- `spot_results_40/<persona>/<category>/...`
+
+Outputs:
+- `persona_comparison.csv`
+- `persona_comparison.png`
+- `persona_none_correlation.png`
+
+E) LLM vs GT Comparison (`analysis_scripts/compare_llm_vs_gt.py`)
+------------------------------------------------
+Input:
+- LLM root (typically `spot_results_40/none`)
+- GT root (typically `spot_results_gt`)
+
+Outputs:
+- `llm_vs_gt_comparison.csv`:
+  - `category`
+  - `total_common`
+  - `valid_both`
+  - `agreement_on_valid`
+  - `agreement_rate`
+  - `llm_invalid_rate`
+  - `gt_invalid_rate`
+  - `llm_2p_share`
+  - `gt_expectiminimax_share`
+- `llm_vs_gt_action_transitions.json` (LLM action label -> GT action label counts)
+- optional plot: `llm_vs_gt_agreement.png`
+
+Interpretation Notes
+--------------------
+- Compare behavior rates only on valid subsets when evaluating choice preference.
+- Keep invalid-rate discussion separate from behavior-rate discussion.
+- For GT in multiplayer, results are approximation-based (expectimax-MaxN), not exact global equilibrium.

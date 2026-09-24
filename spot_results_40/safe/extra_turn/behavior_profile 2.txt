@@ -1,0 +1,12 @@
+Behavior Profile (Category)
+============================
+
+Total spots: 40
+Valid spots: 37
+
+llm_invalid_rate: 0.075
+
+extra_turn:
+  bring_out_rate: 0.514
+  move_existing_rate: 0.486
+

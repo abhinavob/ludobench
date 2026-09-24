@@ -1,0 +1,10 @@
+{
+  "grudge": {
+    "total_all": 80,
+    "total_valid": 79,
+    "llm_equals_heuristic": 31,
+    "llm_differs": 48,
+    "llm_invalid": 1,
+    "llm_invalid_rate": 0.0125
+  }
+}

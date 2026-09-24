@@ -1,0 +1,77 @@
+Ludo + LLM Project Summary (Current)
+====================================
+
+Purpose
+-------
+This project studies move-selection behavior in Ludo under controlled spot scenarios
+and full-game rollouts, with emphasis on:
+- LLM decision behavior
+- heuristic baseline comparison
+- game-theory search comparison
+- persona-conditioned behavior shifts
+
+Main Components
+---------------
+1) Environment and rules
+- `ludo_env.py` is the source of truth for move legality and transitions.
+- `rules.txt` mirrors implemented rules.
+
+2) Agents
+- `RandomAgent`, `HeuristicAgent`: `agents.py`
+- LLM wrapper with strict parsing + fallback: `llm_agent.py`
+- 2-player GT search: `game_theory_agent.py`
+- Multiplayer GT approximation (MaxN-style with chance): `game_theory_multiplayer_agent.py`
+
+3) Spot evaluation
+- Single spot: `run_spot_evaluation.py` + `spot_evaluation.py`
+- Batch spot evaluation (LLM): `run_all_spots.py`
+- Batch spot evaluation (GT): `run_all_spots_gt.py`
+
+4) Aggregation and comparison
+- Persona aggregation from spot outputs: `analysis_scripts/compare_personas.py`
+- LLM vs GT category comparison: `analysis_scripts/compare_llm_vs_gt.py`
+
+5) Result management
+- Timestamped archival: `archive_results.py`
+- Reduced-set generator from full spots: `sample_spots_40.py`
+
+Rule Implementation Highlights
+------------------------------
+- 2-4 players, 4 tokens per player
+- Main board 0..51, private home paths from 52 onward
+- Base is -1; leave base only on dice=6
+- Exact landing required on home end; overshoot illegal
+- Safe squares: {0, 8, 13, 21, 26, 34, 39, 47}
+- Capture only on non-safe main-board squares
+- Extra turn only on roll=6
+- Same-player stacking allowed on safe squares and in home path
+- Same-player stacking blocked on non-safe main-board squares
+
+Spot Prompt/Validity Behavior
+-----------------------------
+- Spot legal moves are computed internally.
+- Spot prompts do not include legal move list (`spot_evaluation.py` calls LLMAgent with `include_legal_moves_in_prompt=False`).
+- Invalid rate is computed from raw LLM integer choice before fallback.
+
+Spot Data Layout
+----------------
+- `spots_40/`: final public benchmark subset used for the main repo artifact
+- `spots/`: broader source set used during construction and earlier runs
+- `spots_temporary/`: exploratory or deprecated spot sets not part of the main artifact
+
+Output Layout
+-------------
+LLM runs (persona aware):
+- `spot_results_40/<persona>/<category>/...`
+
+GT runs:
+- `spot_results_gt/<category>/...`
+
+Archive snapshots:
+- `results/<timestamp>/...` or custom root (e.g., `results_new/<timestamp>/...`)
+
+Practical Note
+--------------
+The codebase currently supports direct apples-to-apples category comparison between
+LLM (`spot_results_40/none`) and GT (`spot_results_gt`) using
+`analysis_scripts/compare_llm_vs_gt.py`.

@@ -1,0 +1,11 @@
+spots_overshoot.json
+====================
+
+Intent
+------
+Test whether LLM avoids overshoot-illegal choices near home-end.
+
+Primary metric
+--------------
+- `overshoot_rate`
+- `llm_invalid_rate`

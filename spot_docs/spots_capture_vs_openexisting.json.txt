@@ -1,0 +1,12 @@
+spots_capture_vs_openexisting.json
+==================================
+
+Intent
+------
+With dice=6, test capture-now vs opening a base token.
+
+Primary metrics
+---------------
+- `capture_rate`
+- `open_rate`
+- `llm_invalid_rate`

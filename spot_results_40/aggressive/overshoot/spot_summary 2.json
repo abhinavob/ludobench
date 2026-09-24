@@ -1,0 +1,10 @@
+{
+  "overshoot": {
+    "total_all": 40,
+    "total_valid": 40,
+    "llm_equals_heuristic": 21,
+    "llm_differs": 19,
+    "llm_invalid": 0,
+    "llm_invalid_rate": 0.0
+  }
+}

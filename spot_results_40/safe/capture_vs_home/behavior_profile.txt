@@ -1,0 +1,13 @@
+Behavior Profile (Category)
+============================
+
+Total spots: 40
+Valid spots: 24
+
+llm_invalid_rate: 0.400
+
+capture_vs_home:
+  capture_rate: 0.292
+  home_entry_rate: 0.708
+  other_rate: 0.000
+

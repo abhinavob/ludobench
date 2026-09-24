@@ -1,0 +1,11 @@
+spots_home_entry.json
+=====================
+
+Intent
+------
+Test preference for entering/progressing into own home path when available.
+
+Primary metric
+--------------
+- `home_entry_rate`
+- `llm_invalid_rate`

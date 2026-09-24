@@ -1,0 +1,1835 @@
+[
+  {
+    "id": "home_entry_2p_001",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 3,
+    "tokens": {
+      "0": [
+        17,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        12,
+        24,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_2p_004",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 4,
+    "tokens": {
+      "0": [
+        50,
+        40,
+        -1,
+        -1
+      ],
+      "1": [
+        29,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_3p_005",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 3,
+    "tokens": {
+      "0": [
+        15,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        12,
+        50,
+        -1,
+        -1
+      ],
+      "2": [
+        48,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_2p_007",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 5,
+    "tokens": {
+      "0": [
+        36,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        11,
+        40,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_3p_008",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 4,
+    "tokens": {
+      "0": [
+        36,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        25,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        23,
+        41,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_4p_009",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 3,
+    "current_player": 3,
+    "dice": 2,
+    "tokens": {
+      "0": [
+        20,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        29,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        16,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        38,
+        31,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_2p_010",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 5,
+    "tokens": {
+      "0": [
+        49,
+        23,
+        -1,
+        -1
+      ],
+      "1": [
+        41,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_2p_013",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 4,
+    "tokens": {
+      "0": [
+        11,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        12,
+        20,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_3p_014",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 3,
+    "tokens": {
+      "0": [
+        11,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        42,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        25,
+        16,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_3p_017",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 3,
+    "tokens": {
+      "0": [
+        18,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        11,
+        27,
+        -1,
+        -1
+      ],
+      "2": [
+        45,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_4p_021",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 4,
+    "tokens": {
+      "0": [
+        49,
+        16,
+        -1,
+        -1
+      ],
+      "1": [
+        2,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        22,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        19,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_2p_022",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 3,
+    "tokens": {
+      "0": [
+        50,
+        12,
+        -1,
+        -1
+      ],
+      "1": [
+        37,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_3p_023",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 2,
+    "tokens": {
+      "0": [
+        51,
+        38,
+        -1,
+        -1
+      ],
+      "1": [
+        5,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        27,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_4p_030",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 3,
+    "current_player": 3,
+    "dice": 3,
+    "tokens": {
+      "0": [
+        32,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        3,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        1,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        38,
+        48,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_2p_037",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 4,
+    "tokens": {
+      "0": [
+        44,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        10,
+        18,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_4p_039",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 3,
+    "current_player": 3,
+    "dice": 3,
+    "tokens": {
+      "0": [
+        30,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        20,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        2,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        38,
+        41,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_3p_044",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 3,
+    "tokens": {
+      "0": [
+        15,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        14,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        24,
+        22,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_4p_051",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 4,
+    "tokens": {
+      "0": [
+        43,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        30,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        24,
+        50,
+        -1,
+        -1
+      ],
+      "3": [
+        49,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_3p_053",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 3,
+    "tokens": {
+      "0": [
+        49,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        15,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        24,
+        45,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_3p_056",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 2,
+    "tokens": {
+      "0": [
+        43,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        11,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        25,
+        5,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_4p_057",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 3,
+    "current_player": 3,
+    "dice": 5,
+    "tokens": {
+      "0": [
+        18,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        6,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        44,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        37,
+        45,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_3p_062",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 3,
+    "tokens": {
+      "0": [
+        5,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        27,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        25,
+        50,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_4p_063",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 3,
+    "current_player": 3,
+    "dice": 5,
+    "tokens": {
+      "0": [
+        23,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        12,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        28,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        38,
+        27,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_2p_064",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 3,
+    "tokens": {
+      "0": [
+        4,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        12,
+        2,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_3p_065",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 3,
+    "tokens": {
+      "0": [
+        50,
+        3,
+        -1,
+        -1
+      ],
+      "1": [
+        22,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        31,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_4p_066",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 3,
+    "current_player": 3,
+    "dice": 3,
+    "tokens": {
+      "0": [
+        30,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        20,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        29,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        38,
+        7,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 2,
+    "llm_raw_valid": false,
+    "heuristic_move": 0,
+    "llm_valid": false,
+    "llm_equals_heuristic": false,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_2p_067",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 4,
+    "tokens": {
+      "0": [
+        51,
+        36,
+        -1,
+        -1
+      ],
+      "1": [
+        3,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_2p_073",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 3,
+    "tokens": {
+      "0": [
+        50,
+        9,
+        -1,
+        -1
+      ],
+      "1": [
+        31,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_4p_075",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 3,
+    "current_player": 3,
+    "dice": 4,
+    "tokens": {
+      "0": [
+        42,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        5,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        44,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        38,
+        49,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_3p_077",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 2,
+    "tokens": {
+      "0": [
+        9,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        24,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        25,
+        15,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_4p_078",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 5,
+    "tokens": {
+      "0": [
+        6,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        12,
+        15,
+        -1,
+        -1
+      ],
+      "2": [
+        31,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        45,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_2p_079",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 4,
+    "tokens": {
+      "0": [
+        23,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        12,
+        24,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_3p_080",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 3,
+    "tokens": {
+      "0": [
+        43,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        6,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        25,
+        42,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_2p_088",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 2,
+    "tokens": {
+      "0": [
+        51,
+        46,
+        -1,
+        -1
+      ],
+      "1": [
+        15,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_4p_090",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 5,
+    "tokens": {
+      "0": [
+        12,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        42,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        24,
+        15,
+        -1,
+        -1
+      ],
+      "3": [
+        18,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_2p_091",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 4,
+    "tokens": {
+      "0": [
+        50,
+        32,
+        -1,
+        -1
+      ],
+      "1": [
+        19,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_4p_093",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 3,
+    "current_player": 3,
+    "dice": 4,
+    "tokens": {
+      "0": [
+        2,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        28,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        7,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        37,
+        32,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_2p_094",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 5,
+    "tokens": {
+      "0": [
+        49,
+        20,
+        -1,
+        -1
+      ],
+      "1": [
+        7,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_3p_095",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 5,
+    "tokens": {
+      "0": [
+        50,
+        28,
+        -1,
+        -1
+      ],
+      "1": [
+        9,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        29,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  },
+  {
+    "id": "home_entry_4p_096",
+    "scenario": "home_entry",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 5,
+    "tokens": {
+      "0": [
+        16,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        9,
+        48,
+        -1,
+        -1
+      ],
+      "2": [
+        10,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        28,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Home-entry focused: one token can enter home, other move is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_home_entry.json",
+    "persona": "safe"
+  }
+]

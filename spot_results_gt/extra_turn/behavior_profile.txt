@@ -1,0 +1,12 @@
+Behavior Profile (Category) - GT Agent
+=====================================
+
+Total spots: 40
+Valid spots: 40
+
+gt_invalid_rate: 0.000
+
+extra_turn:
+  bring_out_rate: 1.000
+  move_existing_rate: 0.000
+

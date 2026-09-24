@@ -1,0 +1,50 @@
+Overall Behavior Profile - GT Agent
+===================================
+
+depth=2
+
+[blocked]
+  gt_invalid_rate=0.000
+
+[capture]
+  gt_invalid_rate=0.000
+
+[capture_vs_home]
+  capture_vs_home.capture_rate=0.975
+  capture_vs_home.home_entry_rate=0.025
+  gt_invalid_rate=0.000
+
+[capture_vs_home_finish]
+  gt_invalid_rate=0.000
+
+[capture_vs_openexisting]
+  capture_vs_openexisting.capture_rate=0.675
+  capture_vs_openexisting.open_rate=0.325
+  gt_invalid_rate=0.000
+
+[capture_vs_safe]
+  gt_invalid_rate=0.000
+
+[extra_turn]
+  extra_turn.bring_out_rate=1.000
+  gt_invalid_rate=0.000
+
+[grudge]
+  grudge.change_rate=0.000
+  gt_invalid_rate=0.000
+
+[home_entry]
+  home_entry.home_entry_rate=0.125
+  gt_invalid_rate=0.000
+
+[overshoot]
+  overshoot.overshoot_rate=0.000
+  gt_invalid_rate=0.000
+
+[safe]
+  safe.safe_rate=0.875
+  gt_invalid_rate=0.000
+
+[safe_vs_openexisting]
+  gt_invalid_rate=0.000
+

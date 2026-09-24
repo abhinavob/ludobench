@@ -1,0 +1,13 @@
+Behavior Profile (Category)
+============================
+
+Total spots: 40
+Valid spots: 37
+
+llm_invalid_rate: 0.075
+
+capture_vs_openexisting:
+  capture_rate: 0.270
+  open_rate: 0.730
+  other_rate: 0.000
+

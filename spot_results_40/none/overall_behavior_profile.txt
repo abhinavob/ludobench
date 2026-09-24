@@ -1,0 +1,50 @@
+Overall Behavior Profile
+=========================
+
+persona=none
+
+[blocked]
+  llm_invalid_rate=0.675
+
+[capture]
+  llm_invalid_rate=0.175
+
+[capture_vs_home]
+  capture_vs_home.capture_rate=0.208
+  capture_vs_home.home_entry_rate=0.792
+  llm_invalid_rate=0.400
+
+[capture_vs_home_finish]
+  llm_invalid_rate=0.375
+
+[capture_vs_openexisting]
+  capture_vs_openexisting.capture_rate=0.000
+  capture_vs_openexisting.open_rate=1.000
+  llm_invalid_rate=0.000
+
+[capture_vs_safe]
+  llm_invalid_rate=0.225
+
+[extra_turn]
+  extra_turn.bring_out_rate=1.000
+  llm_invalid_rate=0.000
+
+[grudge]
+  grudge.change_rate=0.075
+  llm_invalid_rate=0.000
+
+[home_entry]
+  home_entry.home_entry_rate=0.760
+  llm_invalid_rate=0.375
+
+[overshoot]
+  overshoot.overshoot_rate=0.000
+  llm_invalid_rate=0.950
+
+[safe]
+  safe.safe_rate=0.750
+  llm_invalid_rate=0.300
+
+[safe_vs_openexisting]
+  llm_invalid_rate=0.000
+

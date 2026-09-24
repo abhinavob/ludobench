@@ -1,0 +1,11 @@
+spots_blocked.json
+==================
+
+Intent
+------
+Test if the LLM avoids illegal/self-blocked movement and picks the valid non-blocked token.
+
+Primary metric
+--------------
+- `block_rate` (on valid LLM outputs)
+- `llm_invalid_rate`

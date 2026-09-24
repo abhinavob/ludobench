@@ -1,0 +1,12 @@
+spots_safe_vs_openexisting.json
+===============================
+
+Intent
+------
+With dice=6, test safe move vs opening a base token.
+
+Primary metrics
+---------------
+- `safe_rate`
+- `open_rate`
+- `llm_invalid_rate`

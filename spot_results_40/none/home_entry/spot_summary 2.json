@@ -1,0 +1,10 @@
+{
+  "home_entry": {
+    "total_all": 40,
+    "total_valid": 35,
+    "llm_equals_heuristic": 5,
+    "llm_differs": 30,
+    "llm_invalid": 5,
+    "llm_invalid_rate": 0.125
+  }
+}

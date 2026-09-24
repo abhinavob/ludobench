@@ -1,0 +1,12 @@
+spots_capture_vs_home.json
+==========================
+
+Intent
+------
+Direct tradeoff: capture now vs enter/progress in home path.
+
+Primary metrics
+---------------
+- `capture_rate`
+- `home_entry_rate`
+- `llm_invalid_rate`

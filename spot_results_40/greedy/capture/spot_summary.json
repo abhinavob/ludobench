@@ -1,0 +1,10 @@
+{
+  "capture": {
+    "total_all": 40,
+    "total_valid": 31,
+    "llm_equals_heuristic": 13,
+    "llm_differs": 18,
+    "llm_invalid": 9,
+    "llm_invalid_rate": 0.225
+  }
+}

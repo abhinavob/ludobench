@@ -1,0 +1,1915 @@
+[
+  {
+    "id": "cvo_2p_001",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        -1,
+        30,
+        -1,
+        -1
+      ],
+      "1": [
+        36,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_2p_003",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        -1,
+        16,
+        -1,
+        -1
+      ],
+      "1": [
+        22,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_2p_008",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        -1,
+        5,
+        -1,
+        -1
+      ],
+      "1": [
+        11,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_2p_009",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        12,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        -1,
+        6,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_2p_012",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        31,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        -1,
+        25,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_2p_013",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        11,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        -1,
+        5,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_2p_022",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        10,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        -1,
+        4,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_2p_024",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        43,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        -1,
+        37,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_2p_026",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        44,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        -1,
+        38,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_2p_028",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        -1,
+        25,
+        -1,
+        -1
+      ],
+      "1": [
+        31,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_2p_029",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        -1,
+        25,
+        -1,
+        -1
+      ],
+      "1": [
+        31,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_2p_030",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        -1,
+        25,
+        -1,
+        -1
+      ],
+      "1": [
+        31,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_2p_033",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        12,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        -1,
+        6,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_2p_034",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        31,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        -1,
+        25,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_3p_001",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        -1,
+        1,
+        -1,
+        -1
+      ],
+      "1": [
+        48,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        7,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_3p_002",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        15,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        38,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        -1,
+        9,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_3p_003",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        -1,
+        40,
+        -1,
+        -1
+      ],
+      "1": [
+        38,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        46,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_3p_007",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        48,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        40,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        -1,
+        42,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_3p_010",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        20,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        7,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        -1,
+        14,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_3p_011",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        41,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        32,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        -1,
+        35,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_3p_023",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        23,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        3,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        -1,
+        17,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_3p_024",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        46,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        -1,
+        16,
+        -1,
+        -1
+      ],
+      "2": [
+        22,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_3p_025",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        9,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        35,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        -1,
+        29,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_3p_027",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        25,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        11,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        -1,
+        19,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_3p_028",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        -1,
+        35,
+        -1,
+        -1
+      ],
+      "1": [
+        3,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        41,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_3p_030",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        41,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        -1,
+        35,
+        -1,
+        -1
+      ],
+      "2": [
+        22,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_3p_033",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        7,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        24,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        -1,
+        18,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_4p_004",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 3,
+    "current_player": 3,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        31,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        32,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        7,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        -1,
+        25,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_4p_010",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 3,
+    "current_player": 3,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        23,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        46,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        32,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        -1,
+        40,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_4p_011",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 3,
+    "current_player": 3,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        4,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        20,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        48,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        -1,
+        42,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_4p_014",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 3,
+    "current_player": 3,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        45,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        28,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        24,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        -1,
+        22,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_4p_015",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 3,
+    "current_player": 3,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        45,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        28,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        19,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        -1,
+        22,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_4p_017",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        18,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        -1,
+        29,
+        -1,
+        -1
+      ],
+      "2": [
+        31,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        35,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_4p_019",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 3,
+    "current_player": 3,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        24,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        6,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        36,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        -1,
+        18,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_4p_020",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        22,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        20,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        -1,
+        14,
+        -1,
+        -1
+      ],
+      "3": [
+        42,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_4p_026",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 3,
+    "current_player": 3,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        28,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        43,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        49,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        -1,
+        22,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_4p_027",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        -1,
+        22,
+        -1,
+        -1
+      ],
+      "1": [
+        17,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        50,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        28,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_4p_028",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        12,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        32,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        -1,
+        6,
+        -1,
+        -1
+      ],
+      "3": [
+        14,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_4p_031",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        -1,
+        38,
+        -1,
+        -1
+      ],
+      "1": [
+        11,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        37,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        44,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  },
+  {
+    "id": "cvo_4p_032",
+    "scenario": "capture_vs_openexisting",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 3,
+    "current_player": 3,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        41,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        17,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        9,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        -1,
+        11,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Balanced: dice=6 with one capture option and one bring-out option from base.",
+    "history_text": "",
+    "source_file": "spots_40/spots_capture_vs_openexisting.json",
+    "persona": "safe"
+  }
+]

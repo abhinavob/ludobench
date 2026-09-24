@@ -1,0 +1,16 @@
+{
+  "pairs_total": 40,
+  "pairs_with_change": 11,
+  "change_rate": 0.275,
+  "retaliation_grudge_hits": 26,
+  "retaliation_grudge_total": 40,
+  "retaliation_noconflict_hits": 19,
+  "retaliation_noconflict_total": 40,
+  "retaliation_grudge_rate": 0.65,
+  "retaliation_noconflict_rate": 0.475,
+  "transition_counts": {
+    "capture->capture": 9,
+    "home_entry->home_entry": 1,
+    "capture->home_entry": 1
+  }
+}

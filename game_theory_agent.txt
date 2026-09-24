@@ -1,0 +1,321 @@
+GameTheoryAgent Documentation
+=============================
+
+File
+----
+Implementation: `game_theory_agent.py`
+Class: `GameTheoryAgent`
+
+Purpose
+-------
+`GameTheoryAgent` is a 2-player, chance-aware search agent for Ludo.
+It uses an Expectiminimax-style recursion:
+- MAX behavior for the root player (the agent itself)
+- MIN behavior for the opponent
+- CHANCE averaging for random dice outcomes (1..6)
+
+If the game is not 2-player, it falls back to `HeuristicAgent`.
+
+
+1) High-Level Idea
+------------------
+At each turn, the agent evaluates every legal move by simulating future play.
+For each candidate move:
+1. Apply the move to produce next state.
+2. If terminal winner appears, return +1/-1 immediately.
+3. Otherwise, recursively evaluate expected future value under:
+   - opponent best response,
+   - random dice uncertainty,
+   - depth-limited lookahead.
+4. Choose the move with highest expected value.
+
+This is game-theoretic in spirit because it assumes the opponent plays adversarially
+(minimizes your value), while dice is probabilistic.
+
+
+2) State Representation
+-----------------------
+The recursive search uses immutable state tuples:
+- `state = {pid: tuple(token_positions)}`
+- Example: `{0: (49, 12, -1, -1), 1: (-1, -1, -1, -1)}`
+
+This representation is used for:
+- deterministic transitions (`_apply_move`)
+- legal move generation (`_legal_moves`)
+- memoization keys (`_cache`)
+
+
+3) Value Scale and Terminal Values
+----------------------------------
+Returned values are in approximately [-1, 1].
+
+Terminal values:
+- +1.0 => root player wins
+- -1.0 => root player loses
+
+Non-terminal cutoff values:
+- computed by `_evaluate_state(...)`
+- clipped into [-0.999, 0.999]
+
+The root player is fixed per root decision in `select_move(...)` via:
+- `self._root_player = player`
+
+
+4) Recursion Structure (Core)
+-----------------------------
+Mutual recursion is between:
+- `_decision_value(...)`  -> player choice node (MAX/MIN)
+- `_chance_value(...)`    -> dice chance node
+
+4.1 Decision Node (MAX/MIN)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Function: `_decision_value(state, current_player, dice, depth, ...)`
+
+Logic:
+1. If terminal: return +1/-1.
+2. If `depth <= 0`: return heuristic evaluator `_evaluate_state(...)`.
+3. Generate legal actions for `(state, current_player, dice)`.
+4. If no legal actions:
+   - turn passes (or stays if dice==6), then recurse to chance node.
+5. If legal actions exist:
+   - if `current_player == root_player`: choose MAX over actions
+   - else: choose MIN over actions
+
+Recursion call per action:
+- apply action -> `next_state`
+- if not terminal -> call `_chance_value(next_state, next_player, depth-1, ...)`
+
+Key point:
+- This is where adversarial game theory behavior is encoded.
+
+4.2 Chance Node
+~~~~~~~~~~~~~~~
+Function: `_chance_value(state, current_player, depth, ...)`
+
+Logic:
+1. If terminal: return +1/-1.
+2. If `depth <= 0`: return heuristic evaluator.
+3. Enumerate dice outcomes {1,2,3,4,5,6}.
+4. Compute average decision value:
+
+   V_chance(s,p,d) = (1/6) * Sum_{r=1..6} V_decision(s,p,r,d)
+
+This is where stochastic uncertainty is modeled.
+
+
+5) Mathematical Formulation
+---------------------------
+Let:
+- `r` = root player
+- `s` = state
+- `p` = current player
+- `h` = remaining depth
+- `A(s,p,dice)` = legal actions
+- `T(s,p,dice,a)` = transition function (`_apply_move`)
+
+5.1 Terminal Rule
+~~~~~~~~~~~~~~~~~
+V(s, ...) =
+- +1 if root player has all tokens at home_end
+- -1 if opponent has all tokens at home_end
+
+5.2 Decision Value
+~~~~~~~~~~~~~~~~~~
+If h>0 and terminal false:
+
+For root player (MAX):
+V_dec(s,p,dice,h) = max_{a in A(s,p,dice)} V_chance(T(s,p,dice,a), p', h-1)
+
+For opponent (MIN):
+V_dec(s,p,dice,h) = min_{a in A(s,p,dice)} V_chance(T(s,p,dice,a), p', h-1)
+
+where p' = p if dice==6 else other_player(p)
+
+5.3 Chance Value
+~~~~~~~~~~~~~~~~
+V_chance(s,p,h) = (1/6) * sum_{d=1..6} V_dec(s,p,d,h)
+
+
+6) Heuristic Leaf Evaluator
+---------------------------
+Function: `_evaluate_state(...)`
+
+At depth cutoff, evaluate relative advantage for root player using:
+
+score =
+  0.0025 * (me_progress - opp_progress)
++ 0.20   * (me_finished - opp_finished)
+- 0.05   * (me_base - opp_base)
++ 0.01   * (me_safe - opp_safe)
+
+Then clip:
+score = max(-0.999, min(0.999, score))
+
+Feature definitions:
+- progress:
+  - main board token contributes `(relative_position + 1)`
+  - home path token contributes `(board_size + home_step)`
+- finished: count of tokens exactly at home_end
+- base: count of tokens at -1
+- safe: count of tokens on safe squares
+
+Interpretation:
+- more progress/finished/safe is good
+- more tokens in base is bad
+
+
+7) Transition and Rules Used
+----------------------------
+Function: `_apply_move(...)`
+
+Rules matched to current engine:
+- Base entry requires dice=6 (enforced in legal moves)
+- Main-board movement wraps by player-relative indexing
+- Home path entry after full lap
+- Exact landing needed at home_end
+- Capture only on non-safe main-board squares
+- Safe squares are non-capturable
+
+Stacking policy encoded in `_legal_moves(...)`:
+- Same-player stacking allowed on safe squares
+- Same-player stacking allowed in home path
+- Same-player stacking blocked on non-safe main-board squares
+
+
+8) Memoization (Transposition Cache)
+------------------------------------
+`self._cache` stores already solved subproblems.
+
+Cache keys:
+- Decision node key:
+  ("D", serialized_state, current_player, dice, depth)
+- Chance node key:
+  ("C", serialized_state, current_player, depth)
+
+Benefit:
+- Avoids recomputing identical subtrees.
+- Reduces recursion cost significantly in repeated states.
+
+
+9) Root Move Selection
+----------------------
+Function: `select_move(...)`
+
+Algorithm:
+1. For each legal root move `m`:
+   - compute `next_state = apply(m)`
+   - if terminal, use +/-1
+   - else compute `V_m = _chance_value(next_state, next_player, search_depth-1)`
+2. Pick move with largest `V_m`.
+
+Formal:
+best_move = argmax_{m in legal_moves} V_m
+
+
+10) Where Exactly Recursion Happens
+-----------------------------------
+Recursion loop is:
+
+`_decision_value(...)`
+   -> (for each action) `_chance_value(...)`
+      -> (for each dice) `_decision_value(...)`
+         -> ... until terminal or depth cutoff
+
+So recursion alternates between:
+- player-choice layer
+- dice-randomness layer
+
+
+11) Search Depth Semantics
+--------------------------
+`search_depth` controls lookahead horizon.
+
+At root:
+- after immediate move, agent calls chance with `depth = search_depth - 1`.
+
+Then each action expansion in decision node calls chance with `depth - 1`.
+So deeper values increase foresight but also compute time.
+
+
+12) Complexity (Practical)
+--------------------------
+Let:
+- b = average legal moves per decision node
+- 6 = dice branches at chance node
+- h = depth
+
+Rough growth without cache:
+- O((6*b)^h)
+
+With memoization:
+- lower in practice due to repeated state reuse.
+
+
+13) Non-2-Player Handling
+-------------------------
+If number of players != 2, `GameTheoryAgent` returns fallback heuristic move:
+- `self._fallback.select_move(...)`
+
+Reason:
+- current minimax assumptions are clean for 2-player adversarial setting.
+
+
+14) Practical Interpretation of Output Values
+---------------------------------------------
+The absolute numeric values are relative utility estimates under this evaluator.
+Important use is ranking actions, not interpreting as exact probability.
+
+- Higher value => better expected strategic outcome for root player
+- Lower value => worse expected strategic outcome
+
+
+15) Known Limitations
+---------------------
+- Depth-limited: not globally optimal over full game horizon.
+- Evaluation function is hand-tuned linear heuristic.
+- Assumes uniform fair dice probabilities.
+- No explicit time-budget iterative deepening yet.
+
+
+16) Why This Is Still Useful
+----------------------------
+- Stronger than one-step greedy heuristics in many positions.
+- Explicitly models opponent best response and dice uncertainty.
+- Provides principled baseline for comparing LLM decisions.
+
+
+17) Minimal Usage
+-----------------
+Runner file: `run_gt_experiments.py`
+
+Examples:
+- `python3 run_gt_experiments.py --p0 gt --p1 random --games 50 --depth 2 --seed-start 0`
+- `python3 run_gt_experiments.py --p0 gt --p1 heuristic --games 50 --depth 2 --seed-start 0`
+- `python3 run_gt_experiments.py --p0 gt --p1 llm --games 20 --depth 2 --seed-start 0`
+- `python3 run_gt_experiments.py --p0 gt --p1 dummy_llm --games 20 --depth 2 --seed-start 0`
+
+
+18) Recursion Tree (Conceptual)
+--------------------------------
+For one root move m:
+
+MAX root (already chosen m in select_move)
+  -> CHANCE (dice=1..6)
+       -> MIN (opponent chooses minimizing action)
+            -> CHANCE (next dice)
+                 -> ...
+                     -> LEAF eval or terminal +/-1
+
+Values are backed up upward by:
+- min at opponent nodes
+- expected average at chance nodes
+- max at root decision over candidate moves
+
+This is exactly how the agent computes the "best move".
+
+
+19) Multiplayer Extension Note
+------------------------------
+For 3/4-player search, see `game_theory_multiplayer_agent.py`.
+That agent keeps this 2-player logic unchanged (delegates for 2p) and uses
+Expectimax-MaxN style recursion for multiplayer approximation.

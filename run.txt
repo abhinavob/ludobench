@@ -1,0 +1,45 @@
+Run Notes
+=========
+
+Environment
+-----------
+export OPENAI_API_KEY=""
+
+Main reduced-set runs (`spots_40/`)
+-----------------------------------
+python3 run_all_spots.py --spots-glob "spots_40/spots_*.json" --out-dir spot_results_40
+python3 run_all_spots.py --spots-glob "spots_40/spots_*.json" --all-personas --out-dir spot_results_40
+python3 run_all_spots_gt.py --spots-glob "spots_40/spots_*.json" --out-dir spot_results_gt --depth 2
+
+Persona aggregation
+-------------------
+python3 analysis_scripts/compare_personas.py --root spot_results_40 --personas aggressive,greedy,safe,unforgiving,none
+
+LLM vs GT comparison
+--------------------
+python3 analysis_scripts/compare_llm_vs_gt.py --llm-root spot_results_40/none --gt-root spot_results_gt --out-csv spot_results_gt/llm_vs_gt_comparison.csv --out-actions-json spot_results_gt/llm_vs_gt_action_transitions.json
+
+Archive reduced-set outputs
+---------------------------
+python3 archive_results.py --source-dir spot_results_40 --spots-dir spots_40 --archive-root results_new
+
+Full-source or legacy runs
+--------------------------
+python3 run_all_spots.py --spots-glob "spots/spots_*.json"
+python3 run_all_spots.py --spots-glob "spots/spots_capture_vs_home_finish.json"
+python3 run_all_spots.py --spots-glob "spots/spots_*.json" --persona aggressive --out-dir spot_results/aggressive
+python3 run_all_spots.py --spots-glob "spots/spots_*.json" --persona greedy --out-dir spot_results/greedy
+python3 run_all_spots.py --spots-glob "spots/spots_*.json" --persona safe --out-dir spot_results/safe
+python3 run_all_spots.py --spots-glob "spots/spots_*.json" --persona unforgiving --out-dir spot_results/unforgiving
+python3 run_all_spots.py --spots-glob "spots/spots_*.json" --persona none --out-dir spot_results/none
+
+GT full-game benchmarks
+-----------------------
+python3 run_gt_experiments.py --p0 gt --p1 random --games 50 --depth 2 --seed-start 0
+python3 run_gt_experiments.py --p0 gt --p1 heuristic --games 50 --depth 2 --seed-start 0
+python3 run_gt_experiments.py --p0 gt --p1 llm --games 20 --depth 2 --seed-start 0
+python3 run_gt_experiments.py --p0 llm --p1 gt --games 20 --depth 2 --seed-start 0
+
+Non-persona evaluation
+----------------------
+python3 analysis_scripts/non_persona_spot_eval.py --results-root results_for_40 --gt-root spot_results_gt --persona none --out-dir results_for_40/non_persona_eval

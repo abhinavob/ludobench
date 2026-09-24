@@ -1,0 +1,10 @@
+{
+  "safe": {
+    "total_all": 40,
+    "total_valid": 40,
+    "llm_equals_heuristic": 12,
+    "llm_differs": 28,
+    "llm_invalid": 0,
+    "llm_invalid_rate": 0.0
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "safe_vs_openexisting": {
+    "total_all": 40,
+    "total_valid": 40,
+    "gt_equals_heuristic": 19,
+    "gt_differs": 21,
+    "gt_invalid": 0,
+    "gt_invalid_rate": 0.0
+  }
+}

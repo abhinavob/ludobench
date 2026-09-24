@@ -1,0 +1,1915 @@
+[
+  {
+    "id": "extra_turn_2p_004",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        -1,
+        18,
+        -1,
+        -1
+      ],
+      "1": [
+        12,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_2p_005",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        34,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        -1,
+        45,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_2p_007",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        31,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        -1,
+        18,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_2p_012",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        29,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        -1,
+        36,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_2p_013",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        -1,
+        5,
+        -1,
+        -1
+      ],
+      "1": [
+        21,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_2p_014",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        9,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        -1,
+        17,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_2p_016",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        29,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        -1,
+        5,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_2p_017",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        -1,
+        42,
+        -1,
+        -1
+      ],
+      "1": [
+        23,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_2p_019",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        37,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        -1,
+        18,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_2p_021",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        -1,
+        35,
+        -1,
+        -1
+      ],
+      "1": [
+        33,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_2p_024",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        32,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        -1,
+        36,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_2p_029",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        -1,
+        9,
+        -1,
+        -1
+      ],
+      "1": [
+        39,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_2p_033",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        -1,
+        44,
+        -1,
+        -1
+      ],
+      "1": [
+        45,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_2p_034",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        37,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        -1,
+        25,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_3p_004",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        -1,
+        1,
+        -1,
+        -1
+      ],
+      "1": [
+        35,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        45,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_3p_006",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        -1,
+        11,
+        -1,
+        -1
+      ],
+      "1": [
+        13,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        35,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_3p_008",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        33,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        -1,
+        35,
+        -1,
+        -1
+      ],
+      "2": [
+        4,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_3p_010",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        40,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        45,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        -1,
+        44,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_3p_011",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        21,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        35,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        -1,
+        5,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_3p_012",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        21,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        42,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        -1,
+        38,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_3p_013",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        -1,
+        40,
+        -1,
+        -1
+      ],
+      "1": [
+        19,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        2,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_3p_014",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        14,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        8,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        -1,
+        3,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_3p_017",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        25,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        -1,
+        18,
+        -1,
+        -1
+      ],
+      "2": [
+        16,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_3p_022",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        -1,
+        31,
+        -1,
+        -1
+      ],
+      "1": [
+        19,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        20,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_3p_030",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        -1,
+        3,
+        -1,
+        -1
+      ],
+      "1": [
+        18,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        35,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_3p_031",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        28,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        -1,
+        45,
+        -1,
+        -1
+      ],
+      "2": [
+        7,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_3p_032",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        15,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        35,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        -1,
+        1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_4p_001",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 3,
+    "current_player": 3,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        43,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        44,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        21,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        -1,
+        14,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_4p_006",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 3,
+    "current_player": 3,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        43,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        1,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        23,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        -1,
+        22,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_4p_010",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 3,
+    "current_player": 3,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        4,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        15,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        34,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        -1,
+        17,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_4p_011",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 3,
+    "current_player": 3,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        5,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        4,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        4,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        -1,
+        23,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_4p_012",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        50,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        46,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        -1,
+        36,
+        -1,
+        -1
+      ],
+      "3": [
+        22,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_4p_017",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        41,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        6,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        -1,
+        36,
+        -1,
+        -1
+      ],
+      "3": [
+        8,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_4p_021",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 3,
+    "current_player": 3,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        8,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        42,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        34,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        -1,
+        25,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_4p_024",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 3,
+    "current_player": 3,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        40,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        33,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        25,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        -1,
+        6,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_4p_025",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        36,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        2,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        -1,
+        45,
+        -1,
+        -1
+      ],
+      "3": [
+        22,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_4p_026",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        1,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        45,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        -1,
+        27,
+        -1,
+        -1
+      ],
+      "3": [
+        45,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_4p_027",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        9,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        1,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        -1,
+        29,
+        -1,
+        -1
+      ],
+      "3": [
+        16,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_4p_030",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 3,
+    "current_player": 3,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        41,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        35,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        17,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        -1,
+        30,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  },
+  {
+    "id": "extra_turn_4p_031",
+    "scenario": "extra_turn",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 3,
+    "current_player": 3,
+    "dice": 6,
+    "tokens": {
+      "0": [
+        11,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        3,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        31,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        -1,
+        24,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Extra-turn focused: dice=6 with a choice to bring out a new token or move an existing one.",
+    "history_text": "",
+    "source_file": "spots_40/spots_extra_turn.json",
+    "persona": "none"
+  }
+]

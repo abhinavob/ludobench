@@ -1,0 +1,48 @@
+Heuristic Agent Logic (Current)
+===============================
+
+Implemented in `agents.py` (`HeuristicAgent.select_move`).
+
+Inputs
+------
+- `env`, `player`, `dice`, `legal_moves`
+
+Selection rule
+--------------
+Score every legal token, pick highest score (first one on ties).
+
+Scoring
+-------
+1) Base token (`pos == -1`):
+- score = 50
+- encourages bringing tokens into play
+
+2) Token on main board (`0..51`):
+- compute relative progress from player's start
+- move forward by dice
+- if still on main board:
+  - `score = new_rel`
+- if entering home path:
+  - `score = BOARD_SIZE + home_step`
+
+3) Token in home path:
+- `new_pos = pos + dice`
+- `score = BOARD_SIZE + home_step`
+
+Bonuses
+-------
+- Capture bonus: +100 if destination captures opponent on non-safe main square
+- Safe landing bonus: +20 if destination is a safe square
+
+What it optimizes
+-----------------
+- strong preference for immediate captures
+- consistent forward progress
+- slight preference for safe-square landings
+
+What it does NOT do
+-------------------
+- no lookahead tree search
+- no opponent modeling
+- no explicit risk forecasting beyond safe-square bonus
+- no advanced blockade/star-jump strategy

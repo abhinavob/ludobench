@@ -1,0 +1,12 @@
+Behavior Profile (Category)
+============================
+
+Total spots: 40
+Valid spots: 4
+
+llm_invalid_rate: 0.900
+
+overshoot:
+  overshoot_rate: 0.000
+  other_rate: 1.000
+

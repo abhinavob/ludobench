@@ -1,0 +1,71 @@
+Project File Map (Current)
+==========================
+
+Core Engine
+-----------
+- `ludo_env.py` - Ludo environment (legal moves, move apply, capture, turn flow, winner).
+- `rules.txt` - Implemented rule specification synced to engine.
+- `agents.py` - `BaseAgent`, `RandomAgent`, `HeuristicAgent`.
+- `llm_agent.py` - LLM prompt builder + strict parse/fallback logic.
+- `real_llm.py` - OpenRouter/OpenAI client wrapper and model selection.
+- `dummy_llm.py` - Local dummy callable for non-API tests.
+
+Game Theory Agents
+------------------
+- `game_theory_agent.py` - 2-player expectiminimax agent.
+- `game_theory_multiplayer_agent.py` - 3/4-player expectimax-MaxN style agent; delegates to 2-player GT for 2p.
+- `game_theory_agent.txt` - Detailed math/recursion documentation for 2-player GT.
+
+Evaluation / Runners
+--------------------
+- `run_experiments.py` - Full-game experiments (agent matchups).
+- `evaluation.py` - Full-game metric extraction.
+- `run_spot_evaluation.py` - Single-spot run.
+- `spot_evaluation.py` - Spot environment + legal move compute + LLM/heuristic evaluation.
+- `run_all_spots.py` - Batch spots for LLM (persona support).
+- `run_all_spots_gt.py` - Batch spots for GT.
+- `run_gt_experiments.py` - 2-player GT benchmarking in full games.
+
+Comparison / Plot / Archive
+---------------------------
+- `analysis_scripts/compare_personas.py` - Persona metrics table/plot from LLM spot outputs.
+- `analysis_scripts/compare_llm_vs_gt.py` - Category-level LLM-vs-GT comparison from spot outputs.
+- `archive_results.py` - Timestamped archiving of outputs/logs/spot definitions.
+- `sample_spots_40.py` - Builds fixed-seed reduced set `spots_40/` from `spots/`.
+
+Spot Definitions
+----------------
+Active reduced set used for most runs:
+- `spots_40/spots_blocked.json`
+- `spots_40/spots_capture.json`
+- `spots_40/spots_capture_vs_home.json`
+- `spots_40/spots_capture_vs_home_finish.json`
+- `spots_40/spots_capture_vs_openexisting.json`
+- `spots_40/spots_capture_vs_safe.json`
+- `spots_40/spots_extra_turn.json`
+- `spots_40/spots_grudge_paired.json`
+- `spots_40/spots_home_entry.json`
+- `spots_40/spots_overshoot.json`
+- `spots_40/spots_safe.json`
+- `spots_40/spots_safe_vs_openexisting.json`
+Broader source set:
+- `spots/` (broader source set used during construction and earlier runs)
+- `spots_temporary/` (temporary or exploratory spot sets not in the main artifact)
+
+Documentation
+-------------
+- `README.md` - entrypoint overview + commands.
+- `read.txt` - architecture summary.
+- `evaluation.txt` - metric definitions and interpretation scope.
+- `heuristic.txt` - heuristic baseline details.
+- `spot_creation.txt` - spot generation methodology.
+- `spot_docs/README.txt` + `spot_docs/*.txt` - category docs for active focus set.
+
+Runtime Outputs
+---------------
+- `spot_results/` - legacy LLM output folder from earlier runs.
+- `spot_results_40/` - reduced-set LLM outputs.
+- `spot_results_gt/` - GT outputs.
+- `results_for_40/`, `results_for_100/` - archived experiment outputs and plots.
+- Logs: `game_log.txt`, `llm_log.txt`, `spot_llm.txt`, `spot_run.txt`.
+- Per-player logs: `player1.txt`..`player4.txt`.

@@ -1,0 +1,13 @@
+Behavior Profile (Category)
+============================
+
+Total spots: 80
+Valid spots: 79
+
+llm_invalid_rate: 0.013
+
+grudge:
+  change_rate: 0.051
+  retaliation_grudge_rate: 0.872
+  retaliation_noconflict_rate: 0.821
+

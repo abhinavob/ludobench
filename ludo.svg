@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 580" width="560" height="580" font-family="Arial, sans-serif">
+  <rect width="560" height="580" fill="white"/>
+  <text x="280" y="32" text-anchor="middle" font-size="13" font-weight="bold" fill="#111">Standard Ludo Board with Safe Positions</text>
+  <rect x="50" y="50" width="180" height="180" fill="#FFDDDD" stroke="#222" stroke-width="1.5"/>
+  <rect x="80" y="80" width="120" height="120" fill="#EE4444" stroke="#222" stroke-width="1"/>
+  <rect x="320" y="50" width="180" height="180" fill="#DDFFDD" stroke="#222" stroke-width="1.5"/>
+  <rect x="350" y="80" width="120" height="120" fill="#33AA33" stroke="#222" stroke-width="1"/>
+  <rect x="50" y="320" width="180" height="180" fill="#FFFFCC" stroke="#222" stroke-width="1.5"/>
+  <rect x="80" y="350" width="120" height="120" fill="#CCAA00" stroke="#222" stroke-width="1"/>
+  <rect x="320" y="320" width="180" height="180" fill="#DDDDFF" stroke="#222" stroke-width="1.5"/>
+  <rect x="350" y="350" width="120" height="120" fill="#3333BB" stroke="#222" stroke-width="1"/>
+  <rect x="230" y="50" width="90" height="180" fill="white"/>
+  <rect x="230" y="320" width="90" height="180" fill="white"/>
+  <rect x="50" y="230" width="180" height="90" fill="white"/>
+  <rect x="320" y="230" width="180" height="90" fill="white"/>
+  <rect x="260" y="80" width="30" height="150" fill="#FF9999"/>
+  <rect x="320" y="260" width="150" height="30" fill="#88CC88"/>
+  <rect x="260" y="320" width="30" height="150" fill="#EECC55"/>
+  <rect x="80" y="260" width="150" height="30" fill="#8888EE"/>
+  <line x1="210" y1="230" x2="210" y2="320" stroke="#aaa" stroke-width="0.5"/>
+  <line x1="180" y1="230" x2="180" y2="320" stroke="#aaa" stroke-width="0.5"/>
+  <line x1="150" y1="230" x2="150" y2="320" stroke="#aaa" stroke-width="0.5"/>
+  <line x1="120" y1="230" x2="120" y2="320" stroke="#aaa" stroke-width="0.5"/>
+  <line x1="90" y1="230" x2="90" y2="320" stroke="#aaa" stroke-width="0.5"/>
+  <line x1="50" y1="260" x2="230" y2="260" stroke="#aaa" stroke-width="0.5"/>
+  <line x1="50" y1="290" x2="230" y2="290" stroke="#aaa" stroke-width="0.5"/>
+  <line x1="350" y1="230" x2="350" y2="320" stroke="#aaa" stroke-width="0.5"/>
+  <line x1="380" y1="230" x2="380" y2="320" stroke="#aaa" stroke-width="0.5"/>
+  <line x1="410" y1="230" x2="410" y2="320" stroke="#aaa" stroke-width="0.5"/>
+  <line x1="440" y1="230" x2="440" y2="320" stroke="#aaa" stroke-width="0.5"/>
+  <line x1="470" y1="230" x2="470" y2="320" stroke="#aaa" stroke-width="0.5"/>
+  <line x1="320" y1="260" x2="500" y2="260" stroke="#aaa" stroke-width="0.5"/>
+  <line x1="320" y1="290" x2="500" y2="290" stroke="#aaa" stroke-width="0.5"/>
+  <line x1="260" y1="50" x2="260" y2="230" stroke="#aaa" stroke-width="0.5"/>
+  <line x1="290" y1="50" x2="290" y2="230" stroke="#aaa" stroke-width="0.5"/>
+  <line x1="230" y1="80" x2="320" y2="80" stroke="#aaa" stroke-width="0.5"/>
+  <line x1="230" y1="110" x2="320" y2="110" stroke="#aaa" stroke-width="0.5"/>
+  <line x1="230" y1="140" x2="320" y2="140" stroke="#aaa" stroke-width="0.5"/>
+  <line x1="230" y1="170" x2="320" y2="170" stroke="#aaa" stroke-width="0.5"/>
+  <line x1="230" y1="200" x2="320" y2="200" stroke="#aaa" stroke-width="0.5"/>
+  <line x1="260" y1="320" x2="260" y2="500" stroke="#aaa" stroke-width="0.5"/>
+  <line x1="290" y1="320" x2="290" y2="500" stroke="#aaa" stroke-width="0.5"/>
+  <line x1="230" y1="350" x2="320" y2="350" stroke="#aaa" stroke-width="0.5"/>
+  <line x1="230" y1="380" x2="320" y2="380" stroke="#aaa" stroke-width="0.5"/>
+  <line x1="230" y1="410" x2="320" y2="410" stroke="#aaa" stroke-width="0.5"/>
+  <line x1="230" y1="440" x2="320" y2="440" stroke="#aaa" stroke-width="0.5"/>
+  <line x1="230" y1="470" x2="320" y2="470" stroke="#aaa" stroke-width="0.5"/>
+  <rect x="80" y="230" width="30" height="30" fill="#CCC" stroke="#444" stroke-width="0.8"/>
+  <polygon points="95,236 97,243 104,243 98,247 101,254 95,250 89,254 92,247 86,243 93,243" fill="#333"/>
+  <rect x="230" y="80" width="30" height="30" fill="#CCC" stroke="#444" stroke-width="0.8"/>
+  <polygon points="245,86 247,93 254,93 248,97 251,104 245,100 239,104 242,97 236,93 243,93" fill="#333"/>
+  <rect x="290" y="110" width="30" height="30" fill="#CCC" stroke="#444" stroke-width="0.8"/>
+  <polygon points="305,116 307,123 314,123 308,127 311,134 305,130 299,134 302,127 296,123 303,123" fill="#333"/>
+  <rect x="110" y="290" width="30" height="30" fill="#CCC" stroke="#444" stroke-width="0.8"/>
+  <polygon points="125,296 127,303 134,303 128,307 131,314 125,310 119,314 122,307 116,303 123,303" fill="#333"/>
+  <rect x="440" y="290" width="30" height="30" fill="#CCC" stroke="#444" stroke-width="0.8"/>
+  <polygon points="455,296 457,303 464,303 458,307 461,314 455,310 449,314 452,307 446,303 453,303" fill="#333"/>
+  <rect x="410" y="230" width="30" height="30" fill="#CCC" stroke="#444" stroke-width="0.8"/>
+  <polygon points="425,236 427,243 434,243 428,247 431,254 425,250 419,254 422,247 416,243 423,243" fill="#333"/>
+  <rect x="230" y="440" width="30" height="30" fill="#CCC" stroke="#444" stroke-width="0.8"/>
+  <polygon points="245,446 247,453 254,453 248,457 251,464 245,460 239,464 242,457 236,453 243,453" fill="#333"/>
+  <rect x="290" y="410" width="30" height="30" fill="#CCC" stroke="#444" stroke-width="0.8"/>
+  <polygon points="305,416 307,423 314,423 308,427 311,434 305,430 299,434 302,427 296,423 303,423" fill="#333"/>
+  <polygon points="275,230 320,275 275,320 230,275" fill="#FFFCE0" stroke="#555" stroke-width="1.5"/>
+  <polygon points="275,230 320,275 275,275" fill="#88CC88"/>
+  <polygon points="275,230 275,275 230,275" fill="#FF9999"/>
+  <polygon points="230,275 275,275 275,320" fill="#8888EE"/>
+  <polygon points="275,275 320,275 275,320" fill="#EECC55"/>
+  <polygon points="275,230 320,275 275,320 230,275" fill="none" stroke="#444" stroke-width="1.5"/>
+  <rect x="50" y="50" width="450" height="450" fill="none" stroke="#111" stroke-width="2"/>
+  <line x1="230" y1="50" x2="230" y2="230" stroke="#111" stroke-width="1.5"/>
+  <line x1="320" y1="50" x2="320" y2="230" stroke="#111" stroke-width="1.5"/>
+  <line x1="50" y1="230" x2="230" y2="230" stroke="#111" stroke-width="1.5"/>
+  <line x1="50" y1="320" x2="230" y2="320" stroke="#111" stroke-width="1.5"/>
+  <line x1="320" y1="230" x2="500" y2="230" stroke="#111" stroke-width="1.5"/>
+  <line x1="320" y1="320" x2="500" y2="320" stroke="#111" stroke-width="1.5"/>
+  <line x1="230" y1="320" x2="230" y2="500" stroke="#111" stroke-width="1.5"/>
+  <line x1="320" y1="320" x2="320" y2="500" stroke="#111" stroke-width="1.5"/>
+  <rect x="50" y="516" width="12" height="12" fill="#CCC" stroke="#444" stroke-width="0.8"/>
+  <polygon points="56,518 57,521 60,521 58,523 59,526 56,524 53,526 54,523 52,521 55,521" fill="#333"/>
+  <text x="68" y="526" font-size="10" fill="#333">Safe Square</text>
+  <rect x="165" y="516" width="12" height="12" fill="#EE4444"/>
+  <text x="182" y="526" font-size="10" fill="#333">Red</text>
+  <rect x="218" y="516" width="12" height="12" fill="#33AA33"/>
+  <text x="235" y="526" font-size="10" fill="#333">Green</text>
+  <rect x="288" y="516" width="12" height="12" fill="#CCAA00"/>
+  <text x="305" y="526" font-size="10" fill="#333">Yellow</text>
+  <rect x="368" y="516" width="12" height="12" fill="#3333BB"/>
+  <text x="385" y="526" font-size="10" fill="#333">Blue</text>
+  <text x="280" y="550" text-anchor="middle" font-size="9" fill="#666">Clockwise movement  |  ★ = Safe positions (captures not allowed)</text>
+</svg>

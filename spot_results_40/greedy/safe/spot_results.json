@@ -1,0 +1,1835 @@
+[
+  {
+    "id": "safe_4p_003",
+    "scenario": "safe",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 3,
+    "current_player": 3,
+    "dice": 4,
+    "tokens": {
+      "0": [
+        27,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        2,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        11,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        22,
+        3,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 2,
+    "llm_raw_valid": false,
+    "heuristic_move": 0,
+    "llm_valid": false,
+    "llm_equals_heuristic": true,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_3p_011",
+    "scenario": "safe",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 5,
+    "tokens": {
+      "0": [
+        29,
+        15,
+        -1,
+        -1
+      ],
+      "1": [
+        31,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        16,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_2p_013",
+    "scenario": "safe",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 2,
+    "tokens": {
+      "0": [
+        19,
+        3,
+        -1,
+        -1
+      ],
+      "1": [
+        49,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_3p_014",
+    "scenario": "safe",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 3,
+    "tokens": {
+      "0": [
+        29,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        5,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        31,
+        25,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_4p_015",
+    "scenario": "safe",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 3,
+    "current_player": 3,
+    "dice": 2,
+    "tokens": {
+      "0": [
+        4,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        37,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        5,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        6,
+        20,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 2,
+    "llm_raw_valid": false,
+    "heuristic_move": 0,
+    "llm_valid": false,
+    "llm_equals_heuristic": false,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_3p_020",
+    "scenario": "safe",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 4,
+    "tokens": {
+      "0": [
+        10,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        50,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        30,
+        14,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_2p_022",
+    "scenario": "safe",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 3,
+    "tokens": {
+      "0": [
+        23,
+        19,
+        -1,
+        -1
+      ],
+      "1": [
+        28,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_3p_023",
+    "scenario": "safe",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 3,
+    "tokens": {
+      "0": [
+        32,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        9,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        18,
+        40,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_4p_024",
+    "scenario": "safe",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 3,
+    "current_player": 3,
+    "dice": 3,
+    "tokens": {
+      "0": [
+        24,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        37,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        43,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        44,
+        12,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 2,
+    "llm_raw_valid": false,
+    "heuristic_move": 0,
+    "llm_valid": false,
+    "llm_equals_heuristic": true,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_3p_026",
+    "scenario": "safe",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 4,
+    "tokens": {
+      "0": [
+        31,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        1,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        4,
+        45,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_2p_028",
+    "scenario": "safe",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 2,
+    "tokens": {
+      "0": [
+        24,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        19,
+        44,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_3p_029",
+    "scenario": "safe",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 4,
+    "tokens": {
+      "0": [
+        16,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        24,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        30,
+        49,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 2,
+    "llm_raw_valid": false,
+    "heuristic_move": 0,
+    "llm_valid": false,
+    "llm_equals_heuristic": false,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_2p_034",
+    "scenario": "safe",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 2,
+    "tokens": {
+      "0": [
+        11,
+        16,
+        -1,
+        -1
+      ],
+      "1": [
+        24,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_3p_038",
+    "scenario": "safe",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 3,
+    "tokens": {
+      "0": [
+        1,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        3,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        44,
+        42,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 2,
+    "llm_raw_valid": false,
+    "heuristic_move": 0,
+    "llm_valid": false,
+    "llm_equals_heuristic": false,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_4p_039",
+    "scenario": "safe",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 3,
+    "tokens": {
+      "0": [
+        5,
+        14,
+        -1,
+        -1
+      ],
+      "1": [
+        19,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        23,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        29,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_2p_043",
+    "scenario": "safe",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 4,
+    "tokens": {
+      "0": [
+        17,
+        38,
+        -1,
+        -1
+      ],
+      "1": [
+        35,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_3p_044",
+    "scenario": "safe",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 2,
+    "tokens": {
+      "0": [
+        45,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        41,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        50,
+        33,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 2,
+    "llm_raw_valid": false,
+    "heuristic_move": 0,
+    "llm_valid": false,
+    "llm_equals_heuristic": false,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_4p_048",
+    "scenario": "safe",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 3,
+    "tokens": {
+      "0": [
+        12,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        7,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        5,
+        40,
+        -1,
+        -1
+      ],
+      "3": [
+        32,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 2,
+    "llm_raw_valid": false,
+    "heuristic_move": 0,
+    "llm_valid": false,
+    "llm_equals_heuristic": true,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_2p_049",
+    "scenario": "safe",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 2,
+    "tokens": {
+      "0": [
+        31,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        19,
+        46,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_3p_050",
+    "scenario": "safe",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 2,
+    "tokens": {
+      "0": [
+        11,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        5,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        45,
+        10,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_4p_051",
+    "scenario": "safe",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 4,
+    "tokens": {
+      "0": [
+        38,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        17,
+        42,
+        -1,
+        -1
+      ],
+      "2": [
+        19,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        15,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_4p_054",
+    "scenario": "safe",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 3,
+    "current_player": 3,
+    "dice": 3,
+    "tokens": {
+      "0": [
+        11,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        38,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        48,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        44,
+        24,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 2,
+    "llm_raw_valid": false,
+    "heuristic_move": 1,
+    "llm_valid": false,
+    "llm_equals_heuristic": true,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_2p_055",
+    "scenario": "safe",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 3,
+    "tokens": {
+      "0": [
+        18,
+        48,
+        -1,
+        -1
+      ],
+      "1": [
+        9,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_3p_056",
+    "scenario": "safe",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 3,
+    "tokens": {
+      "0": [
+        23,
+        15,
+        -1,
+        -1
+      ],
+      "1": [
+        48,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        4,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_2p_061",
+    "scenario": "safe",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 3,
+    "tokens": {
+      "0": [
+        14,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        18,
+        25,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_4p_063",
+    "scenario": "safe",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 3,
+    "current_player": 3,
+    "dice": 4,
+    "tokens": {
+      "0": [
+        32,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        15,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        24,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        43,
+        23,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 2,
+    "llm_raw_valid": false,
+    "heuristic_move": 1,
+    "llm_valid": false,
+    "llm_equals_heuristic": true,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_3p_068",
+    "scenario": "safe",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 5,
+    "tokens": {
+      "0": [
+        29,
+        38,
+        -1,
+        -1
+      ],
+      "1": [
+        6,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        9,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_4p_072",
+    "scenario": "safe",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 3,
+    "tokens": {
+      "0": [
+        23,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        17,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        10,
+        40,
+        -1,
+        -1
+      ],
+      "3": [
+        44,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 2,
+    "llm_raw_valid": false,
+    "heuristic_move": 0,
+    "llm_valid": false,
+    "llm_equals_heuristic": false,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_2p_073",
+    "scenario": "safe",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 2,
+    "tokens": {
+      "0": [
+        24,
+        10,
+        -1,
+        -1
+      ],
+      "1": [
+        5,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_4p_075",
+    "scenario": "safe",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 2,
+    "tokens": {
+      "0": [
+        4,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        37,
+        15,
+        -1,
+        -1
+      ],
+      "2": [
+        6,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        19,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_3p_077",
+    "scenario": "safe",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 4,
+    "tokens": {
+      "0": [
+        23,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        30,
+        14,
+        -1,
+        -1
+      ],
+      "2": [
+        49,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_2p_079",
+    "scenario": "safe",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 3,
+    "tokens": {
+      "0": [
+        40,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        31,
+        4,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 1,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_4p_081",
+    "scenario": "safe",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 3,
+    "current_player": 3,
+    "dice": 2,
+    "tokens": {
+      "0": [
+        10,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        46,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        15,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        32,
+        28,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 2,
+    "llm_raw_valid": false,
+    "heuristic_move": 0,
+    "llm_valid": false,
+    "llm_equals_heuristic": true,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_2p_082",
+    "scenario": "safe",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 3,
+    "tokens": {
+      "0": [
+        37,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        44,
+        9,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_3p_086",
+    "scenario": "safe",
+    "players": [
+      0,
+      1,
+      2
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 5,
+    "tokens": {
+      "0": [
+        16,
+        7,
+        -1,
+        -1
+      ],
+      "1": [
+        6,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        31,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_4p_090",
+    "scenario": "safe",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 2,
+    "current_player": 2,
+    "dice": 5,
+    "tokens": {
+      "0": [
+        25,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        48,
+        -1,
+        -1,
+        -1
+      ],
+      "2": [
+        16,
+        9,
+        -1,
+        -1
+      ],
+      "3": [
+        15,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 2,
+    "llm_raw_valid": false,
+    "heuristic_move": 0,
+    "llm_valid": false,
+    "llm_equals_heuristic": true,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_2p_091",
+    "scenario": "safe",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 2,
+    "tokens": {
+      "0": [
+        11,
+        7,
+        -1,
+        -1
+      ],
+      "1": [
+        2,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_2p_094",
+    "scenario": "safe",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 2,
+    "tokens": {
+      "0": [
+        20,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        32,
+        43,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_4p_096",
+    "scenario": "safe",
+    "players": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "llm_player_id": 1,
+    "current_player": 1,
+    "dice": 2,
+    "tokens": {
+      "0": [
+        28,
+        -1,
+        -1,
+        -1
+      ],
+      "1": [
+        37,
+        3,
+        -1,
+        -1
+      ],
+      "2": [
+        11,
+        -1,
+        -1,
+        -1
+      ],
+      "3": [
+        9,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 1,
+    "llm_raw_move": 1,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": false,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  },
+  {
+    "id": "safe_2p_100",
+    "scenario": "safe",
+    "players": [
+      0,
+      1
+    ],
+    "llm_player_id": 0,
+    "current_player": 0,
+    "dice": 3,
+    "tokens": {
+      "0": [
+        18,
+        4,
+        -1,
+        -1
+      ],
+      "1": [
+        12,
+        -1,
+        -1,
+        -1
+      ]
+    },
+    "legal_moves": [
+      0,
+      1
+    ],
+    "llm_move": 0,
+    "llm_raw_move": 0,
+    "llm_raw_valid": true,
+    "heuristic_move": 0,
+    "llm_valid": true,
+    "llm_equals_heuristic": true,
+    "note": "Safe-focused: one move lands on safe square, other is neutral.",
+    "history_text": "",
+    "source_file": "spots_40/spots_safe.json",
+    "persona": "greedy"
+  }
+]

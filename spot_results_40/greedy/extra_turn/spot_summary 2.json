@@ -1,0 +1,10 @@
+{
+  "extra_turn": {
+    "total_all": 40,
+    "total_valid": 38,
+    "llm_equals_heuristic": 18,
+    "llm_differs": 20,
+    "llm_invalid": 2,
+    "llm_invalid_rate": 0.05
+  }
+}

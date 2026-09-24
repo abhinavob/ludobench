@@ -1,0 +1,158 @@
+Spot Creation Guide
+===================
+
+Purpose
+-------
+This file explains how the public benchmark subset in `spots_40/` relates to the
+broader source spot sets in this repository.
+A spot is a single-turn decision test with a controlled board state, dice value,
+and intended move tradeoff.
+
+Reduced Spot Set (`spots_40`)
+-----------------------------
+- `spots_40/` is the final benchmark subset intended for the main public artifact.
+- It was derived from the broader source pool in `spots/`.
+- Sampling keeps original format and IDs (subset only, no schema change).
+- Sampling uses fixed seed for reproducibility.
+- Balance targets are applied for:
+  - player-count mix (2/3/4 players),
+  - `llm_player_id` mix (where source data permits).
+- For paired categories:
+  - `grudge_paired` uses 40 pairs (80 entries).
+
+Creation Mode Used In This Project
+----------------------------------
+Spot creation here is best described as **spec-driven, agent-assisted construction**:
+- You define the intent/spec (category, count, balance, constraints).
+- The assistant generates/updates scenario entries into static JSON files.
+- The broader source artifacts live in `spots/*.json`.
+- The final public benchmark subset lives in `spots_40/*.json`.
+
+So, creation is not fully manual hand-typing of each spot, and it is also not a
+separate always-on generator pipeline during every run.
+
+General Structure Of A Spot
+---------------------------
+Each spot entry contains:
+- `id`: unique identifier
+- `scenario`: category name
+- `players`: active player ids (2/3/4 player setups)
+- `llm_player_id`: player being evaluated
+- `current_player`: must match `llm_player_id` for evaluation
+- `dice`: fixed dice roll for this decision point
+- `tokens`: per-player token positions (4 tokens each)
+- `note`: short intent description
+- optional `history_text`: used for paired/history scenarios (e.g., grudge)
+
+Core Design Rules Used While Creating Spots
+-------------------------------------------
+1) Validity first
+- Every spot must have at least one legal move under `ludo_env.py` rules.
+- No illegal board states (invalid home ranges, etc.).
+- Same-player stacking is allowed only on safe squares and in home path squares.
+- Same-player stacking on NON-safe main-board squares is invalid.
+
+2) Controlled incentives
+- Spot is built to isolate one decision pressure (capture, safe, home entry, etc.).
+- Non-target incentives are minimized as much as possible.
+
+3) Mixed player configurations
+- Use 2-player, 3-player, and 4-player setups for diversity.
+- `llm_player_id`/`current_player` are mixed across active players.
+
+4) Scenario intent preservation
+- If a scenario is "A vs B", both A-option and B-option should be realistically available.
+
+How Category Spots Are Constructed
+----------------------------------
+1) blocked (`spots_blocked.json`)
+- Build positions where one candidate move is self-blocked by own-token occupancy
+  on a NON-safe main-board square,
+  while another token move remains legal.
+- Tests whether LLM avoids blocked/invalid-like choices and picks valid movement.
+
+2) capture (`spots_capture.json`)
+- Ensure at least one legal move lands on an opponent token on a non-safe square.
+- Other legal moves are neutral alternatives.
+- Tests pure capture preference.
+
+3) capture_vs_home (`spots_capture_vs_home.json`)
+- One legal move captures.
+- Another legal move enters/progresses into home path.
+- Tests capture vs home-entry preference.
+
+4) capture_vs_home_finish (`spots_capture_vs_home_finish.json`)
+- One legal move captures.
+- Another legal move lands exactly on `home_end` and finishes token.
+- Tests capture vs immediate finishing preference.
+
+5) capture_vs_openexisting (`spots_capture_vs_openexisting.json`)
+- Dice is set to 6.
+- One legal move captures with an active token.
+- Another legal move brings a base token out.
+- Tests capture-now vs opening-new-token preference.
+
+6) capture_vs_safe (`spots_capture_vs_safe.json`)
+- One legal move captures.
+- Another legal move is safer (typically safe-square landing or lower-risk option).
+- Tests aggression vs safety preference.
+
+7) safe (`spots_safe.json`)
+- Construct spots where a safe-square landing option exists alongside non-safe alternatives.
+- Tests safe-square preference.
+
+8) safe_vs_openexisting (`spots_safe_vs_openexisting.json`)
+- Dice is set to 6.
+- One move favors safety.
+- Another move opens token from base.
+- Tests safety vs token activation preference.
+
+9) home_entry (`spots_home_entry.json`)
+- Include legal option that enters/progresses in home path.
+- Competing alternatives are available.
+- Tests home-entry preference.
+
+10) extra_turn (`spots_extra_turn.json`)
+- Dice is 6 by design.
+- Include choice between bringing out a token and moving an existing token.
+- Measures bring-out vs move-existing behavior in roll-6 context.
+
+11) overshoot (`spots_overshoot.json`)
+- Include tokens near home-end where overshoot would be illegal.
+- Ensure legal alternatives exist.
+- Tests whether LLM avoids overshoot-illegal outcomes.
+
+12) grudge_paired (`spots_grudge_paired.json`)
+- Created in paired form: `_a` and `_b` for same/similar board state.
+- Difference is history framing (`history_text`), not core mechanics intent.
+- Used to measure behavior change under social/conflict context.
+
+Quality Checks Recommended After Creation
+-----------------------------------------
+1) Run quick legality sanity:
+- Use `run_spot_evaluation.py` on sample spots from each category.
+
+2) Run full category:
+- `python3 run_all_spots.py --spots-glob "spots/spots_<category>.json"`
+
+3) Confirm metrics match intent:
+- Check `<out_dir>/spot_summary.json`
+- Check `<out_dir>/spot_results.json` for per-spot move labels/validity.
+
+4) Inspect raw LLM output:
+- `<out_dir>/llm_outputs/spot_llm_<spot_id>.json`
+
+Notes
+-----
+- Legal moves are computed internally and not shown in spot prompts.
+- Invalid-rate is based on raw LLM output before fallback.
+- Scenario docs for active categories live in `spot_docs/`.
+
+
+Active reduced set currently used
+---------------------------------
+The primary public benchmark and main experimental runs use `spots_40/`
+(12 documented categories in `spot_docs/`).
+The broader `spots/` directory is retained as the source pool used during
+construction and earlier runs.
+`spots_temporary/` holds exploratory or deprecated categories not in the main artifact.

@@ -1,0 +1,10 @@
+{
+  "blocked": {
+    "total_all": 40,
+    "total_valid": 36,
+    "llm_equals_heuristic": 19,
+    "llm_differs": 17,
+    "llm_invalid": 4,
+    "llm_invalid_rate": 0.1
+  }
+}

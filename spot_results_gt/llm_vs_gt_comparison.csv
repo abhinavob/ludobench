@@ -1,0 +1,13 @@
+category,total_common,valid_both,agreement_on_valid,agreement_rate,llm_invalid_rate,gt_invalid_rate,llm_2p_share,gt_expectiminimax_share
+blocked,40,35,7,0.2,0.125,0.0,0.35,0.35
+capture,40,36,8,0.2222222222222222,0.1,0.0,0.35,0.35
+capture_vs_home,40,36,27,0.75,0.1,0.0,0.35,0.35
+capture_vs_home_finish,40,37,2,0.05405405405405406,0.075,0.0,0.35,0.35
+capture_vs_openexisting,40,37,7,0.1891891891891892,0.075,0.0,0.35,0.35
+capture_vs_safe,40,34,9,0.2647058823529412,0.15,0.0,0.35,0.35
+extra_turn,40,40,28,0.7,0.0,0.0,0.35,0.35
+grudge,80,76,26,0.34210526315789475,0.05,0.0,0.35,0.35
+home_entry,40,35,28,0.8,0.125,0.0,0.35,0.35
+overshoot,40,37,15,0.40540540540540543,0.075,0.0,0.35,0.35
+safe,40,37,7,0.1891891891891892,0.075,0.0,0.35,0.35
+safe_vs_openexisting,40,39,24,0.6153846153846154,0.025,0.0,0.35,0.35

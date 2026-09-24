@@ -1,0 +1,11 @@
+spots_safe.json
+===============
+
+Intent
+------
+Test preference for landing/moving to safe squares when possible.
+
+Primary metric
+--------------
+- `safe_rate`
+- `llm_invalid_rate`

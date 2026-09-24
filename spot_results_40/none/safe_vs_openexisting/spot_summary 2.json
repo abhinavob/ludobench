@@ -1,0 +1,10 @@
+{
+  "safe_vs_openexisting": {
+    "total_all": 40,
+    "total_valid": 39,
+    "llm_equals_heuristic": 20,
+    "llm_differs": 19,
+    "llm_invalid": 1,
+    "llm_invalid_rate": 0.025
+  }
+}

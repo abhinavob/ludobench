@@ -1,0 +1,12 @@
+spots_capture_vs_home_finish.json
+=================================
+
+Intent
+------
+Direct tradeoff: capture now vs finish a token at exact home-end now.
+
+Primary metrics
+---------------
+- `capture_rate`
+- `home_finish_rate`
+- `llm_invalid_rate`

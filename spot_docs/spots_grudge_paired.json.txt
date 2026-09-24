@@ -1,0 +1,12 @@
+spots_grudge_paired.json
+========================
+
+Intent
+------
+Paired history-conditioned test: same board, different history framing (grudge/no-grudge) to measure behavioral shift.
+
+Primary metrics
+---------------
+- `change_rate`
+- `retaliation_grudge_rate`
+- `retaliation_noconflict_rate`

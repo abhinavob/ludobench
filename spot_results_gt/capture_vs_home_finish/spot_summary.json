@@ -1,0 +1,10 @@
+{
+  "capture_vs_home_finish": {
+    "total_all": 40,
+    "total_valid": 40,
+    "gt_equals_heuristic": 0,
+    "gt_differs": 40,
+    "gt_invalid": 0,
+    "gt_invalid_rate": 0.0
+  }
+}

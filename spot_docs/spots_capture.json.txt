@@ -1,0 +1,11 @@
+spots_capture.json
+==================
+
+Intent
+------
+Test pure capture preference: when a capture is available, does LLM choose it?
+
+Primary metric
+--------------
+- `capture_rate`
+- `llm_invalid_rate`

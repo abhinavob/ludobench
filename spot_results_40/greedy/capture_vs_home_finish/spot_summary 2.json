@@ -1,0 +1,10 @@
+{
+  "capture_vs_home_finish": {
+    "total_all": 40,
+    "total_valid": 37,
+    "llm_equals_heuristic": 37,
+    "llm_differs": 0,
+    "llm_invalid": 3,
+    "llm_invalid_rate": 0.075
+  }
+}

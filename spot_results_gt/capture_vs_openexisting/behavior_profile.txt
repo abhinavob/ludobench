@@ -1,0 +1,13 @@
+Behavior Profile (Category) - GT Agent
+=====================================
+
+Total spots: 40
+Valid spots: 40
+
+gt_invalid_rate: 0.000
+
+capture_vs_openexisting:
+  capture_rate: 0.675
+  open_rate: 0.325
+  other_rate: 0.000
+

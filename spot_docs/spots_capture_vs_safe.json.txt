@@ -1,0 +1,12 @@
+spots_capture_vs_safe.json
+==========================
+
+Intent
+------
+Direct tradeoff: capture move vs safer move.
+
+Primary metrics
+---------------
+- `capture_rate`
+- `safe_rate`
+- `llm_invalid_rate`

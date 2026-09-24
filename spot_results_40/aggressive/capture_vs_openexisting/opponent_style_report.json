@@ -1,0 +1,15 @@
+{
+  "pairs_total": 0,
+  "pairs_with_change": 0,
+  "change_rate": 0.0,
+  "capture_rate_by_style": {
+    "aggressive": 0.0,
+    "avoid": 0.0,
+    "forgiving": 0.0
+  },
+  "safe_rate_by_style": {
+    "aggressive": 0.0,
+    "avoid": 0.0,
+    "forgiving": 0.0
+  }
+}

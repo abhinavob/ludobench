@@ -1,0 +1,13 @@
+Behavior Profile (Category) - GT Agent
+=====================================
+
+Total spots: 80
+Valid spots: 80
+
+gt_invalid_rate: 0.000
+
+grudge:
+  change_rate: 0.000
+  retaliation_grudge_rate: 0.000
+  retaliation_noconflict_rate: 0.000
+

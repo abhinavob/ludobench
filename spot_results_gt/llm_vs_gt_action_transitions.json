@@ -1,0 +1,55 @@
+{
+  "blocked": {
+    "other->other": 35
+  },
+  "capture": {
+    "other->capture": 26,
+    "capture->capture": 6,
+    "other->other": 2,
+    "capture->other": 2
+  },
+  "capture_vs_home": {
+    "home_entry->capture": 8,
+    "capture->capture": 27,
+    "capture->home_entry": 1
+  },
+  "capture_vs_home_finish": {
+    "capture->home_finish": 35,
+    "home_finish->home_finish": 2
+  },
+  "capture_vs_openexisting": {
+    "open->capture": 21,
+    "capture->capture": 3,
+    "capture->open": 7,
+    "open->open": 6
+  },
+  "capture_vs_safe": {
+    "capture->capture": 9,
+    "safe->capture": 24,
+    "capture->safe": 1
+  },
+  "extra_turn": {
+    "bring_out->bring_out": 28,
+    "move_existing->bring_out": 12
+  },
+  "grudge": {
+    "other->other": 76
+  },
+  "home_entry": {
+    "other->other": 27,
+    "other->home_entry": 3,
+    "home_entry->other": 4,
+    "home_entry->home_entry": 1
+  },
+  "overshoot": {
+    "other->other": 37
+  },
+  "safe": {
+    "other->safe": 30,
+    "safe->safe": 2,
+    "other->other": 5
+  },
+  "safe_vs_openexisting": {
+    "safe->safe": 39
+  }
+}
