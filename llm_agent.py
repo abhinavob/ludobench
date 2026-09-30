@@ -3,9 +3,14 @@ import re
 from agents import BaseAgent
 
 class LLMAgent(BaseAgent):
-    def __init__(self, llm_call_fn, include_legal_moves_in_prompt=True):
+    def __init__(self, llm_call_fn, include_legal_moves_in_prompt=True,
+                 robust_parse=False):
         self.llm_call = llm_call_fn
         self.include_legal_moves_in_prompt = include_legal_moves_in_prompt
+        # robust_parse=False reproduces the released behaviour exactly (first line
+        # only). Set True for reasoning models, whose answer comes AFTER a long
+        # reasoning block, so the first line is never the answer.
+        self.robust_parse = robust_parse
 
     def select_move(self, env, player, dice, legal_moves):
 
@@ -217,31 +222,73 @@ OUTPUT FORMAT (STRICT)
 
         
         env.llm_calls += 1
+        # Keep the raw reply and reset per-call fields so a stale reason from an
+        # earlier turn is never shown next to this turn's move.
+        env.last_llm_raw = (response or "").strip()
+        env.last_llm_reason = ""
+        env.last_llm_fallback = False
         # match = re.search(r"-?\d+", response or "")
         # TEMP: tolerate malformed LLM outputs so runs don't crash.
         # Remove this once LLM reliably returns "<int> | <reason>".
         try:
             text = (response or "").strip()
-            first_line = text.splitlines()[0] if text else ""
-            if "|" in first_line:
-                left, _, reason = first_line.partition("|")
-                answer = int(left.strip())
-                env.last_llm_reason = reason.strip()
+            if self.robust_parse:
+                answer, reason = self._parse_robust(text, legal_moves)
+                env.last_llm_reason = reason
             else:
-                # Fallback: extract first integer from entire response
-                m = re.search(r"-?\d+", text)
-                if not m:
-                    raise ValueError("no integer in response")
-                answer = int(m.group())
-                env.last_llm_reason = ""
+                first_line = text.splitlines()[0] if text else ""
+                if "|" in first_line:
+                    left, _, reason = first_line.partition("|")
+                    answer = int(left.strip())
+                    env.last_llm_reason = reason.strip()
+                else:
+                    # Fallback: extract first integer from entire response
+                    m = re.search(r"-?\d+", text)
+                    if not m:
+                        raise ValueError("no integer in response")
+                    answer = int(m.group())
+                    env.last_llm_reason = ""
         except Exception:
             env.llm_fallbacks += 1
+            env.last_llm_fallback = True
             return random.choice(legal_moves)
 
         if answer in legal_moves:
             return answer
         env.llm_fallbacks += 1
+        env.last_llm_fallback = True
         return random.choice(legal_moves)
+
+    @staticmethod
+    def _parse_robust(text, legal_moves):
+        """
+        Find the answer in a reply that may open with a long reasoning block.
+        Scans from the END, because the answer comes last. Returns (index, reason).
+        """
+        if not text:
+            raise ValueError("empty response")
+
+        lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+
+        # 1. last line shaped like "<int> | <reason>"
+        for ln in reversed(lines):
+            m = re.match(r"^\**\s*(-?\d+)\s*\**\s*\|(.*)$", ln)
+            if m:
+                return int(m.group(1)), m.group(2).strip()
+
+        # 2. last line that is just an integer
+        for ln in reversed(lines):
+            m = re.match(r"^\**\s*(-?\d+)\s*\**\s*$", ln)
+            if m:
+                return int(m.group(1)), ""
+
+        # 3. last integer anywhere that is actually a legal token index
+        for m in reversed(list(re.finditer(r"-?\d+", text))):
+            val = int(m.group())
+            if val in legal_moves:
+                return val, ""
+
+        raise ValueError("no usable token index in response")
 
         # if match:
         #     choice = int(match.group())

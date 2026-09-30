@@ -4,14 +4,14 @@ class LudoEnv:
     def __init__(self, seed=42, num_players=2, player_ids=None):
         random.seed(seed)
         # Move log (list of dicts)
-        self.log_file = open("game_log.txt", "w")
-        self.llm_log_file = open("llm_log.txt", "w")
+        self.log_file = open("game_log.txt", "w", encoding="utf-8")
+        self.llm_log_file = open("llm_log.txt", "w", encoding="utf-8")
         if player_ids is None:
             player_ids = list(range(num_players))
         self.player_ids = list(player_ids)
         self.NUM_PLAYERS = len(self.player_ids)
         self.player_logs = {
-            pid: open(f"player{pid + 1}.txt", "w") for pid in self.player_ids
+            pid: open(f"player{pid + 1}.txt", "w", encoding="utf-8") for pid in self.player_ids
         }
         self.move_counts = {pid: 0 for pid in self.player_ids}  # Track move numbers for each player
         self.move_log = []
