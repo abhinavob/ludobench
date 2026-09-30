@@ -1,0 +1,6 @@
+# Requires Python 3.12+ (nested f-string in llm_agent.py)
+openai>=1.0
+numpy>=1.26
+pandas>=2.0
+matplotlib>=3.8
+seaborn>=0.13
