@@ -29,18 +29,19 @@ Let a reasoning model actually reason (removes the 60-token cap and newline stop
 Same, but with a longer token limit instead of none:
     python run_games.py --p0 ollama:deepseek-r1 --p1 heuristic --max-tokens 1024
 
-Results go to a JSON file (--out), one record per game. The file is rewritten
-after every game, so a run that dies partway keeps the games already played.
-The default filename is timestamped, and an existing --out file is never
-overwritten.
+Each run writes to its own folder (--out, default llm_game_results/<run_id>/):
+    decisions.jsonl   one line per dice roll, written as the game is played
+    games.jsonl       one line per game
+    run.json          configuration, versions, and definitions of the fields
+An existing folder is never reused, so a run cannot overwrite earlier results.
+See decision_log.py for the record layout.
 """
 
 import argparse
-import json
 import os
-import time
-
+import re
 import sys
+import time
 
 from ludo_env import LudoEnv
 from agents import BaseAgent, RandomAgent, HeuristicAgent
@@ -50,6 +51,7 @@ from llm_backends import (make_llm, parse_spec, check_ollama,
                           DEFAULT_SYSTEM_PROMPT, DEFAULT_TIMEOUT,
                           SCHEMA_ORDERS, DEFAULT_SCHEMA_ORDER)
 from board_render import render_board, describe_move, group_moves
+from decision_log import RunLog, GameLog, CONTEXT_MODE, short_hash
 
 BASELINES = {"random": RandomAgent, "heuristic": HeuristicAgent}
 
@@ -107,59 +109,137 @@ def _bump(counts, key):
     counts[key] = counts.get(key, 0) + 1
 
 
+class _TimedCall:
+    """
+    Wraps a backend call to keep the prompt and the wall-clock latency. Every
+    other attribute (last_finish_reason, base_url, ...) passes through to the
+    backend function.
+    """
+
+    def __init__(self, fn):
+        self._fn = fn
+        self.last_prompt = None
+        self.last_latency_ms = None
+
+    def __call__(self, prompt):
+        self.last_prompt = prompt
+        t0 = time.perf_counter()
+        try:
+            return self._fn(prompt)
+        finally:
+            self.last_latency_ms = round((time.perf_counter() - t0) * 1000, 1)
+
+    def __getattr__(self, name):
+        return getattr(self._fn, name)
+
+
 class TrackedLLMAgent(LLMAgent):
     """
-    LLMAgent that also counts, for its own player, how each reply ended.
+    LLMAgent that also records, for its own player, what each reply was and how
+    it ended.
 
     env.llm_fallbacks is one counter shared by every LLM in the game, so it
-    cannot give a per-model invalid rate; this can. The finish reason separates
-    "ran out of tokens" ("length") and "timeout" from a complete reply that was
-    still unusable ("stop").
+    cannot give a per-model invalid rate; this can. After each model call,
+    last_decision holds that call's details for the decision log.
     """
 
-    def __init__(self, *args, structured=False, last_move=False, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, llm_call_fn, *args, structured=False, last_move=False,
+                 **kwargs):
+        super().__init__(_TimedCall(llm_call_fn), *args, **kwargs)
         self.structured = structured
         self.last_move = last_move
+        self.last_decision = None
         self.calls = 0
         self.invalid = 0
         self.finish_reasons = {}
         self.invalid_by_finish_reason = {}
-        # structured mode only: why an invalid reply was invalid
-        self.invalid_kind = {}
+        self.invalid_by_cause = {}
+        self.prompt_tokens = 0
+        self.completion_tokens = 0
+        self.latency_ms = 0.0
+
+    def _parsed_index(self, text, legal_moves):
+        """
+        The index LLMAgent's parser read from the reply, legal or not; None if it
+        read none. LLMAgent only hands back the final move, so the same parse is
+        repeated here on the same text.
+        """
+        try:
+            if self.robust_parse:
+                return self._parse_robust(text, legal_moves)[0]
+            first_line = text.splitlines()[0] if text else ""
+            if "|" in first_line:
+                return int(first_line.partition("|")[0].strip())
+            return int(re.search(r"-?\d+", text).group())
+        except Exception:
+            return None
 
     def select_move(self, env, player, dice, legal_moves):
         if self.last_move:
             # Worded for this player ("you", "your token"), so set per prompt.
             mv = getattr(env, "last_move_record", None)
             env.history_text = last_move_text(env, mv, player) if mv else None
+        self.last_decision = None
         calls_before = env.llm_calls
         choice = super().select_move(env, player, dice, legal_moves)
         if env.llm_calls == calls_before:          # no model call was made
             return choice
-        why = getattr(self.llm_call, "last_finish_reason", None) or "unknown"
+
+        call = self.llm_call
+        why = getattr(call, "last_finish_reason", None)
+        fallback = env.last_llm_fallback
+        # What the model sent. Structured mode gives LLMAgent a canonical line
+        # (or "" if the JSON was bad), so prefer the backend's untouched text.
+        raw = getattr(call, "last_content", None)
+        if raw is None:                            # dummy backend
+            raw = env.last_llm_raw
+        parsed = self._parsed_index(env.last_llm_raw, legal_moves)
+        cause = None
+        if fallback:
+            if why == "timeout":
+                cause = "timeout"
+            elif not raw:
+                cause = "empty"
+            elif parsed is None:
+                cause = "unparseable"
+            else:
+                cause = "illegal"
+        p_tok = getattr(call, "last_prompt_tokens", None)
+        c_tok = getattr(call, "last_completion_tokens", None)
+        self.last_decision = {
+            "raw_reply": raw,
+            "parsed_index": parsed,
+            "parsed_reason": env.last_llm_reason or None,
+            "reasoning_text": getattr(call, "last_reasoning", "") or None,
+            "finish_reason": why,
+            "was_fallback": fallback,
+            "fallback_cause": cause,
+            "prompt_tokens": p_tok,
+            "completion_tokens": c_tok,
+            "latency_ms": call.last_latency_ms,
+            "prompt_hash": short_hash(call.last_prompt),
+        }
+
         self.calls += 1
-        _bump(self.finish_reasons, why)
-        if env.last_llm_fallback:
+        self.prompt_tokens += p_tok or 0
+        self.completion_tokens += c_tok or 0
+        self.latency_ms += call.last_latency_ms or 0
+        _bump(self.finish_reasons, why or "unknown")
+        if fallback:
             self.invalid += 1
-            _bump(self.invalid_by_finish_reason, why)
-            if self.structured:
-                if why == "timeout":
-                    kind = "timeout"
-                elif self.llm_call.last_structured_ok:
-                    kind = "illegal_piece"         # well-formed, but not a legal move
-                else:
-                    kind = "unparseable"
-                _bump(self.invalid_kind, kind)
+            _bump(self.invalid_by_finish_reason, why or "unknown")
+            _bump(self.invalid_by_cause, cause)
         return choice
 
     def stats(self):
-        s = {"calls": self.calls, "invalid": self.invalid,
-             "finish_reasons": self.finish_reasons,
-             "invalid_by_finish_reason": self.invalid_by_finish_reason}
-        if self.structured:
-            s["invalid_by_kind"] = self.invalid_kind
-        return s
+        return {"calls": self.calls, "invalid": self.invalid,
+                "invalid_by_cause": self.invalid_by_cause,
+                "finish_reasons": self.finish_reasons,
+                "invalid_by_finish_reason": self.invalid_by_finish_reason,
+                "prompt_tokens": self.prompt_tokens,
+                "completion_tokens": self.completion_tokens,
+                "total_tokens": self.prompt_tokens + self.completion_tokens,
+                "latency_ms": round(self.latency_ms, 1)}
 
 
 class WatchAgent(BaseAgent):
@@ -302,23 +382,40 @@ def build_agent(spec, include_legal_moves, uncapped, labels=None, no_think=False
                            last_move=last_move), spec
 
 
-def run_games(specs, games, seed0, include_legal_moves, uncapped, out_path,
+def player_info(specs):
+    """pid -> who plays that seat and where its model is served."""
+    players = {}
+    for pid, spec in enumerate(specs):
+        provider = model = host = None
+        if is_llm_spec(spec):
+            provider, model, host = parse_spec(spec)
+        players[pid] = {"model_spec": spec, "host": host, "seat_position": pid,
+                        "provider": provider, "model": model}
+    return players
+
+
+def run_games(specs, games, seed0, include_legal_moves, uncapped, out_dir, run_id,
               max_steps=1000, watch=False, delay=0.0, no_think=False,
               max_tokens=None, structured=False, last_move=False,
-              schema_order=DEFAULT_SCHEMA_ORDER, reason_max_chars=None):
+              ollama_versions=None, schema_order=DEFAULT_SCHEMA_ORDER,
+              reason_max_chars=None):
+    players = player_info(specs)
     # The field order only exists when structured output is on.
     schema_order = schema_order if structured else None
-    # Stored in every record so a results file is self-describing. The capped
-    # values are make_llm's defaults, which reproduce the released code.
-    # max_tokens is null when uncapped without --max-tokens.
+    # Kept in run.json so a results folder is self-describing. The capped values
+    # are make_llm's defaults, which reproduce the released code. max_tokens is
+    # null when uncapped without --max-tokens.
     settings = {
+        "specs": list(specs),
+        "games": games,
+        "seed0": seed0,
         "structured_output": structured,
         "schema_order": schema_order,
         "reason_max_chars": reason_max_chars,
         "last_move_context": last_move,
         # Resolved server per LLM player, e.g. a partner's laptop on the LAN.
-        "llm_endpoints": {str(pid): parse_spec(spec)[2]
-                          for pid, spec in enumerate(specs) if is_llm_spec(spec)},
+        "llm_endpoints": {str(pid): p["host"] for pid, p in players.items()
+                          if p["host"]},
         "include_legal_moves": include_legal_moves,
         "uncapped": uncapped,
         "max_tokens": max_tokens if uncapped else 60,
@@ -329,23 +426,41 @@ def run_games(specs, games, seed0, include_legal_moves, uncapped, out_path,
         "system_prompt": DEFAULT_SYSTEM_PROMPT,
         "request_timeout_s": DEFAULT_TIMEOUT,
     }
+    # Copied onto every decision record. num_ctx is filled in per player.
+    config = {
+        "no_think": no_think,
+        "uncapped": uncapped,
+        "max_tokens": settings["max_tokens"],
+        "stop": settings["stop"],
+        "structured": structured,
+        "schema_order": schema_order,
+        "reason_max_chars": reason_max_chars,
+        "legal_moves_shown": include_legal_moves,
+        "last_move_context": last_move,
+        "temperature": settings["temperature"],
+        "system_prompt_hash": short_hash(DEFAULT_SYSTEM_PROMPT),
+        "num_ctx": None,
+        "context_mode": CONTEXT_MODE,
+    }
+
+    run = None
     records = []
     for g in range(games):
         seed = seed0 + g
         env = LudoEnv(seed=seed, num_players=len(specs))
+        if run is None:                             # needs an env for its constants
+            run = RunLog(out_dir, run_id, players, settings, config,
+                         ollama_versions or {}, env)
 
         labels = {pid: spec for pid, spec in zip(env.player_ids, specs)}
         human_playing = "human" in specs
         agents = {}
-        tracked = {}                                # pid -> TrackedLLMAgent
         for pid, spec in zip(env.player_ids, specs):
             agent, label = build_agent(spec, include_legal_moves, uncapped, labels,
                                        no_think=no_think, max_tokens=max_tokens,
                                        structured=structured, last_move=last_move,
                                        schema_order=schema_order or DEFAULT_SCHEMA_ORDER,
                                        reason_max_chars=reason_max_chars)
-            if isinstance(agent, TrackedLLMAgent):
-                tracked[pid] = agent
             if watch and spec != "human":
                 agent = WatchAgent(agent, label)
             agents[pid] = agent
@@ -360,46 +475,38 @@ def run_games(specs, games, seed0, include_legal_moves, uncapped, out_path,
                 render_board(env, labels=labels)
                 attach_watcher(env, labels, delay=delay)
 
-        t0 = time.time()
-        winner, steps = env.play_game(agents, max_steps=max_steps)
-        elapsed = time.time() - t0
+        glog = GameLog(run, env, agents, game_index=g, seed=seed)
+        run.game_started()
+        failure = None
+        try:
+            winner, _ = env.play_game(agents, max_steps=max_steps)
+            reason = "win" if winner is not None else "max_steps"
+        except BaseException as e:                  # includes Ctrl+C and a human quitting
+            failure, winner, reason = e, None, "error"
 
         stats = evaluate(env)
-        rec = {
-            "seed": seed,
-            "finished_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
-            "players": {str(pid): labels[pid] for pid in env.player_ids},
-            "winner": winner,
-            "winner_model": labels.get(winner) if winner is not None else None,
-            "hit_max_steps": winner is None,
-            # A dice roll with no legal move still uses a step, so
-            # dice_rolls >= moves_applied.
-            "dice_rolls": steps,
-            "moves_applied": stats.get("total_moves", 0),
-            "seconds": round(elapsed, 1),
-            "llm_calls": stats.get("llm_calls", 0),
-            "llm_fallbacks": stats.get("llm_fallbacks", 0),
-            # Per LLM player: calls, invalid replies, and why each reply ended.
-            "llm_players": {str(pid): {"model": labels[pid], **a.stats()}
-                            for pid, a in tracked.items()},
-            "captures": stats.get("captures", 0),
-            "safe_moves": stats.get("safe_moves", 0),
-            "settings": settings,
-        }
+        rec = glog.game_record(reason, error=repr(failure) if failure else None)
+        rec["llm_calls"] = stats.get("llm_calls", 0)
+        rec["llm_fallbacks"] = stats.get("llm_fallbacks", 0)
+        rec["captures"] = stats.get("captures", 0)
+        rec["safe_moves"] = stats.get("safe_moves", 0)
+        run.write_game(rec)
         records.append(rec)
+        if failure is not None:
+            # The plies and the partial game are on disk. A failure such as an
+            # unreachable server would hit every later game too, so stop here.
+            run.close()
+            raise failure
 
-        fb = rec["llm_fallbacks"]
-        calls = rec["llm_calls"]
+        fb, calls = rec["llm_fallbacks"], rec["llm_calls"]
         rate = f"{fb}/{calls}" if calls else "n/a"
         print(f"  game {g + 1}/{games} (seed {seed}): "
               f"winner P{winner} = {rec['winner_model']}, "
-              f"{steps} dice rolls, {elapsed:.0f}s, invalid {rate}")
+              f"{rec['dice_rolls']} dice rolls, {rec['timings']['seconds']:.0f}s, "
+              f"invalid {rate}")
 
-        # write after every game so a crash does not lose the run
-        if out_path:
-            with open(out_path, "w", encoding="utf-8") as f:
-                json.dump(records, f, indent=2)
-
+    if run is not None:
+        run.close()
     return records
 
 
@@ -422,7 +529,8 @@ def summarise(records, specs):
     calls = sum(r["llm_calls"] for r in records)
     fallbacks = sum(r["llm_fallbacks"] for r in records)
     print(f"\n  mean dice rolls   {sum(r['dice_rolls'] for r in records) / n:.0f}")
-    print(f"  mean seconds/game {sum(r['seconds'] for r in records) / n:.0f}")
+    print(f"  mean seconds/game "
+          f"{sum(r['timings']['seconds'] for r in records) / n:.0f}")
     print(f"  mean captures     {sum(r['captures'] for r in records) / n:.1f}")
     if calls:
         print(f"  LLM calls         {calls}")
@@ -430,28 +538,27 @@ def summarise(records, specs):
 
     per_player = {}
     for r in records:
-        for pid, s in r["llm_players"].items():
-            agg = per_player.setdefault((pid, s["model"]),
-                                        {"calls": 0, "invalid": 0, "why": {},
-                                         "kind": None})
-            agg["calls"] += s["calls"]
-            agg["invalid"] += s["invalid"]
-            for why, k in s["invalid_by_finish_reason"].items():
+        for pid, p in r["per_player"].items():
+            llm = p["llm"]
+            if not llm:
+                continue
+            agg = per_player.setdefault((pid, p["model_spec"]),
+                                        {"calls": 0, "invalid": 0, "why": {}, "cause": {}})
+            agg["calls"] += llm["calls"]
+            agg["invalid"] += llm["invalid"]
+            for why, k in llm["invalid_by_finish_reason"].items():
                 agg["why"][why] = agg["why"].get(why, 0) + k
-            if "invalid_by_kind" in s:
-                agg["kind"] = agg["kind"] or {}
-                for kind, k in s["invalid_by_kind"].items():
-                    agg["kind"][kind] = agg["kind"].get(kind, 0) + k
+            for cause, k in llm["invalid_by_cause"].items():
+                agg["cause"][cause] = agg["cause"].get(cause, 0) + k
     for (pid, model), agg in sorted(per_player.items()):
         if not agg["calls"]:
             continue
-        why = ", ".join(f"{k} {v}" for k, v in sorted(agg["why"].items()))
         print(f"  P{pid} {model}: invalid {agg['invalid']}/{agg['calls']} "
-              f"({agg['invalid'] / agg['calls']:.1%})"
-              + (f"  by finish reason: {why}" if why else ""))
-        if agg["kind"]:
-            kinds = ", ".join(f"{k} {v}" for k, v in sorted(agg["kind"].items()))
-            print(f"      structured: {kinds}")
+              f"({agg['invalid'] / agg['calls']:.1%})")
+        if agg["invalid"]:
+            cause = ", ".join(f"{k} {v}" for k, v in sorted(agg["cause"].items()))
+            why = ", ".join(f"{k} {v}" for k, v in sorted(agg["why"].items()))
+            print(f"      by cause: {cause}   by finish reason: {why}")
 
 
 def main():
@@ -479,8 +586,8 @@ def main():
                          "newline stop (default: 60 tokens + newline stop, as in "
                          "the paper)")
     ap.add_argument("--out", default=None,
-                    help="JSON file for per-game records (must not already exist); "
-                         "default is a timestamped file in llm_game_results/")
+                    help="folder for this run's logs (must not already exist); "
+                         "default is llm_game_results/<timestamp>_<players>/")
     ap.add_argument("--watch", action="store_true",
                     help="draw the board after every move (spectator mode)")
     ap.add_argument("--delay", type=float, default=0.0,
@@ -539,11 +646,13 @@ def main():
 
     # Check every Ollama server answers before any game starts, so a partner's
     # laptop that is off or firewalled fails now with its host and port named.
+    ollama_versions = {}
     for pid, (provider, model, base_url) in resolved.items():
         where = base_url
         if provider in ("ollama", "ollama_native"):
             try:
-                where += f"  (Ollama {check_ollama(base_url)})"
+                ollama_versions[base_url] = check_ollama(base_url)
+                where += f"  (Ollama {ollama_versions[base_url]})"
             except RuntimeError as e:
                 raise SystemExit(f"P{pid} {specs[pid]}: {e}")
         print(f"P{pid} {model} -> {where}")
@@ -558,13 +667,11 @@ def main():
     if out is None:
         tag = "_vs_".join(s.replace("/", "-").replace(":", "-") for s in specs)
         out = os.path.join("llm_game_results",
-                           f"{tag}_{time.strftime('%Y%m%d-%H%M%S')}.json")
+                           f"{time.strftime('%Y%m%d-%H%M%S')}_{tag}")
     elif os.path.exists(out):
         raise SystemExit(f"{out} already exists; pick another --out "
                          f"(refusing to overwrite earlier results)")
-    # Create the folder now, not after game 1, so a bad path fails before any play.
-    if os.path.dirname(out):
-        os.makedirs(os.path.dirname(out), exist_ok=True)
+    run_id = os.path.basename(os.path.normpath(out))
 
     print(f"\nRunning {args.games} game(s): " + "  vs  ".join(specs))
     if not args.uncapped:
@@ -588,7 +695,9 @@ def main():
         seed0=args.seed0,
         include_legal_moves=not args.no_legal_moves,
         uncapped=args.uncapped,
-        out_path=out,
+        out_dir=out,
+        run_id=run_id,
+        ollama_versions=ollama_versions,
         max_steps=args.max_steps,
         watch=args.watch,
         delay=args.delay,
@@ -600,7 +709,7 @@ def main():
         last_move=args.last_move,
     )
     summarise(records, specs)
-    print(f"\nPer-game records: {out}")
+    print(f"\nLogs: {out}  (decisions.jsonl, games.jsonl, run.json)")
 
 
 if __name__ == "__main__":

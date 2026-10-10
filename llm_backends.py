@@ -137,6 +137,7 @@ def _timed_out(call):
     """
     call.last_reasoning = ""
     call.last_content = ""
+    call.last_prompt_tokens = call.last_completion_tokens = None
     call.last_finish_reason = "timeout"
     return ""
 
@@ -202,8 +203,10 @@ def make_llm(spec,
       last_reasoning      the model's reasoning text, for display only
       last_finish_reason  why the reply ended: "stop", "length" (ran out of
                           tokens), "timeout", or None if the provider gave none
-      last_content        the raw reply text (ollama_native), for display
+      last_content        the raw reply text, before any structured parsing
       last_structured_ok  structured mode: whether the JSON parsed
+      last_prompt_tokens / last_completion_tokens
+                          token counts the server reported, or None
     and, fixed: spec, base_url.
     """
     if spec == "dummy":
@@ -256,12 +259,17 @@ def make_llm(spec,
             kwargs["extra_body"] = {"think": think}
 
         call.last_finish_reason = None
+        call.last_content = ""
+        call.last_prompt_tokens = call.last_completion_tokens = None
         last_err = None
         for attempt in range(retries):
             try:
                 resp = client.chat.completions.create(**kwargs)
                 choice = resp.choices[0]
                 call.last_finish_reason = choice.finish_reason
+                if resp.usage is not None:
+                    call.last_prompt_tokens = resp.usage.prompt_tokens
+                    call.last_completion_tokens = resp.usage.completion_tokens
                 msg = choice.message
                 # Thinking models put their chain of thought in a separate field.
                 # Keep it for display only: it is never the answer, so an empty
@@ -272,7 +280,8 @@ def make_llm(spec,
                     if alt:
                         call.last_reasoning = str(alt).strip()
                         break
-                return (msg.content or "").strip()
+                call.last_content = (msg.content or "").strip()
+                return call.last_content
             except APITimeoutError as e:
                 # Only a slow answer counts against the model; failing to
                 # connect is a network problem, retried below like any other.
@@ -292,6 +301,8 @@ def make_llm(spec,
     call.base_url = base_url
     call.last_reasoning = ""
     call.last_finish_reason = None
+    call.last_content = ""
+    call.last_prompt_tokens = call.last_completion_tokens = None
     return call
 
 
@@ -332,12 +343,15 @@ def _make_ollama_native(spec, model, base_url, max_tokens, stop, temperature,
         call.last_finish_reason = None
         call.last_content = ""
         call.last_structured_ok = False
+        call.last_prompt_tokens = call.last_completion_tokens = None
         last_err = None
         for attempt in range(retries):
             try:
                 with urllib.request.urlopen(req, timeout=timeout) as resp:
                     body = json.loads(resp.read().decode("utf-8"))
                 call.last_finish_reason = body.get("done_reason")
+                call.last_prompt_tokens = body.get("prompt_eval_count")
+                call.last_completion_tokens = body.get("eval_count")
                 msg = body.get("message", {})
                 # Same contract as the /v1 path: reasoning is display-only.
                 call.last_reasoning = (msg.get("thinking") or "").strip()
@@ -376,4 +390,5 @@ def _make_ollama_native(spec, model, base_url, max_tokens, stop, temperature,
     call.last_finish_reason = None
     call.last_content = ""
     call.last_structured_ok = False
+    call.last_prompt_tokens = call.last_completion_tokens = None
     return call
