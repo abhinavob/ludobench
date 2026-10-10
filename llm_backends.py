@@ -12,24 +12,33 @@ A backend is specified as "<provider>:<model>":
     openrouter:qwen/qwen-2.5-7b-instruct
     dummy                             (offline stub, no API)
 
+ollama_native can also name another machine's Ollama server:
+    ollama_native://<host>:11434/qwen2.5vl:3b
+    ollama_native://<host>/qwen2.5vl:3b        (port defaults to 11434)
+
 Usage:
     from llm_backends import make_llm
     fn = make_llm("ollama:llama3.2")
     reply = fn("some prompt")
 """
 
+import json
 import os
 import time
 
 DEFAULT_SYSTEM_PROMPT = "You are an expert Ludo player."
 
+OLLAMA_PORT = 11434
+
+# 127.0.0.1, not "localhost": on Windows "localhost" tries IPv6 ::1 first, and
+# Ollama listens on IPv4 only by default, so each new connection waited ~2s.
 PROVIDER_DEFAULTS = {
     "ollama": {
-        "base_url": "http://localhost:11434/v1",
+        "base_url": f"http://127.0.0.1:{OLLAMA_PORT}/v1",
         "api_key": "ollama",          # Ollama ignores it but the client requires one
     },
     "ollama_native": {
-        "base_url": "http://localhost:11434",   # native /api/chat, honours "think"
+        "base_url": f"http://127.0.0.1:{OLLAMA_PORT}",  # native /api/chat, honours "think"
     },
     "openrouter": {
         "base_url": "https://openrouter.ai/api/v1",
@@ -37,19 +46,119 @@ PROVIDER_DEFAULTS = {
     },
 }
 
-
 DEFAULT_TIMEOUT = 600      # seconds per request
+
+# Ollama writes a structured reply's fields in the schema's order, and that
+# order changes what the model answers. With "piece" first and thinking off,
+# the model must commit to a piece before it has reasoned: qwen3:4b then wrote
+# piece 0 in 83 of 83 replies, even where its own reason named another token.
+# With "reason" first it picked a legal piece in 9 of 10 of those positions.
+SCHEMA_ORDERS = {"reason_first": ("reason", "piece"),
+                 "piece_first": ("piece", "reason")}
+DEFAULT_SCHEMA_ORDER = "reason_first"
+
+
+def move_schema(order=DEFAULT_SCHEMA_ORDER, reason_max_chars=None):
+    """
+    JSON schema passed as Ollama's "format" when structured output is on.
+
+    reason_max_chars caps the reason's length inside the schema. A token limit
+    just stops the reply wherever it is, which with the reason first leaves no
+    piece; a length in the schema makes the model close the reason and then
+    write the piece.
+    """
+    props = {"piece": {"type": "integer", "minimum": 0, "maximum": 3},
+             "reason": {"type": "string"}}
+    if reason_max_chars is not None:
+        props["reason"]["maxLength"] = reason_max_chars
+    fields = SCHEMA_ORDERS[order]
+    return {"type": "object",
+            "properties": {name: props[name] for name in fields},
+            "required": list(fields)}
+
+
+def parse_spec(spec):
+    """
+    Split "provider:model" or "ollama_native://host[:port]/model" into
+    (provider, model, base_url). Model names may contain ':' and '/'.
+    """
+    if ":" not in spec:
+        raise ValueError(
+            f"backend spec must be 'provider:model' or 'dummy', got {spec!r}")
+
+    provider, rest = spec.split(":", 1)       # split once: model may contain ':'
+    if provider not in PROVIDER_DEFAULTS:
+        raise ValueError(f"unknown provider {provider!r}; "
+                         f"expected one of {sorted(PROVIDER_DEFAULTS)} or 'dummy'")
+
+    if not rest.startswith("//"):
+        return provider, rest, PROVIDER_DEFAULTS[provider]["base_url"]
+
+    if provider != "ollama_native":
+        raise ValueError(f"a remote host is only supported for ollama_native, "
+                         f"got {spec!r}")
+    hostport, _, model = rest[2:].partition("/")   # model keeps any later '/' or ':'
+    host, sep, port = hostport.partition(":")
+    if not host or not model:
+        raise ValueError(f"expected ollama_native://host[:port]/model, got {spec!r}")
+    if sep and not port.isdigit():
+        raise ValueError(f"bad port {port!r} in {spec!r}")
+    return provider, model, f"http://{host}:{port or OLLAMA_PORT}"
+
+
+def check_ollama(base_url, timeout=5):
+    """
+    Confirm an Ollama server answers at base_url before any game starts.
+    Returns its version string; raises RuntimeError naming host and port if not.
+    """
+    import urllib.request
+    from urllib.parse import urlsplit
+
+    root = base_url[:-3] if base_url.endswith("/v1") else base_url
+    parts = urlsplit(root)
+    try:
+        with urllib.request.urlopen(root + "/api/version", timeout=timeout) as resp:
+            return json.loads(resp.read().decode("utf-8")).get("version", "?")
+    except Exception as e:
+        reason = getattr(e, "reason", e)
+        raise RuntimeError(
+            f"cannot reach Ollama at {parts.hostname}:{parts.port} ({reason}). "
+            f"Check that Ollama is running there. For another machine, start it with "
+            f"OLLAMA_HOST=0.0.0.0 and allow port {parts.port} through its firewall."
+        ) from None
 
 
 def _timed_out(call):
     """
-    A request that runs past the timeout (e.g. a thinking model looping at
-    temperature 0) is recorded as an empty, invalid reply and not retried: a
-    retry would most likely loop again, and one such move must not end the run.
+    A request the server accepted but did not answer in time (e.g. a thinking
+    model looping at temperature 0) is recorded as an empty, invalid reply and
+    not retried: a retry would most likely loop again, and one such move must
+    not end the run.
     """
     call.last_reasoning = ""
+    call.last_content = ""
     call.last_finish_reason = "timeout"
     return ""
+
+
+def _parse_move_json(content):
+    """
+    Read {"piece": int, "reason": str} from a structured reply.
+    Returns (piece, reason), or None if the reply is not that shape.
+    """
+    try:
+        obj = json.loads(content)
+    except ValueError:
+        return None
+    if not isinstance(obj, dict):
+        return None
+    piece = obj.get("piece")
+    if not isinstance(piece, int) or isinstance(piece, bool):
+        return None
+    reason = obj.get("reason")
+    # One line, so LLMAgent's "<int> | <reason>" parser reads it unambiguously.
+    reason = " ".join(reason.split()) if isinstance(reason, str) else ""
+    return piece, reason
 
 
 def make_llm(spec,
@@ -60,7 +169,10 @@ def make_llm(spec,
              think=None,
              retries=3,
              retry_wait=5,
-             timeout=DEFAULT_TIMEOUT):
+             timeout=DEFAULT_TIMEOUT,
+             structured=False,
+             schema_order=DEFAULT_SCHEMA_ORDER,
+             reason_max_chars=None):
     """
     Build a callable prompt -> response string for the given "provider:model" spec.
 
@@ -74,41 +186,57 @@ def make_llm(spec,
     endpoint (provider "ollama") ignores it. Leave it None to use the model's
     default.
 
-    timeout is the per-request limit in seconds. A timed-out request returns ""
-    (an invalid reply) without retrying. Other failures, such as a refused
-    connection, are retried and then raise, which stops the run.
+    timeout is the per-request limit in seconds. A request the server accepted
+    but did not answer in time returns "" (an invalid reply) without retrying.
+    Failing to connect at all, e.g. a refused connection or an unreachable host,
+    is retried and then raises, which stops the run.
+
+    structured=True (ollama_native only) constrains the reply to move_schema()
+    via Ollama's "format" parameter, with its two fields in schema_order
+    ("reason_first" or "piece_first") and, if reason_max_chars is set, the reason
+    limited to that many characters. The JSON is parsed here and returned as one
+    canonical "<piece> | <reason>" line, or "" if it could not be parsed, so
+    LLMAgent's text parser never scrapes a number out of malformed JSON.
 
     After each call, the returned function carries:
       last_reasoning      the model's reasoning text, for display only
       last_finish_reason  why the reply ended: "stop", "length" (ran out of
                           tokens), "timeout", or None if the provider gave none
+      last_content        the raw reply text (ollama_native), for display
+      last_structured_ok  structured mode: whether the JSON parsed
+    and, fixed: spec, base_url.
     """
     if spec == "dummy":
         from dummy_llm import dummy_llm
         return dummy_llm
 
-    if ":" not in spec:
-        raise ValueError(
-            f"backend spec must be 'provider:model' or 'dummy', got {spec!r}")
+    provider, model, base_url = parse_spec(spec)
 
-    provider, model = spec.split(":", 1)      # split once: model may contain ':'
-    if provider not in PROVIDER_DEFAULTS:
-        raise ValueError(f"unknown provider {provider!r}; "
-                         f"expected one of {sorted(PROVIDER_DEFAULTS)} or 'dummy'")
+    if schema_order not in SCHEMA_ORDERS:
+        raise ValueError(f"schema_order must be one of {sorted(SCHEMA_ORDERS)}, "
+                         f"got {schema_order!r}")
+    if reason_max_chars is not None and (not structured or reason_max_chars < 1):
+        raise ValueError("reason_max_chars needs structured=True and a positive value")
+    if structured and provider != "ollama_native":
+        raise ValueError(f"structured output is only supported for ollama_native, "
+                         f"got {spec!r}")
 
     if provider == "ollama_native":
-        return _make_ollama_native(spec, model, max_tokens, stop, temperature,
-                                   system_prompt, think, retries, retry_wait,
-                                   timeout)
+        return _make_ollama_native(spec, model, base_url, max_tokens, stop,
+                                   temperature, system_prompt, think, retries,
+                                   retry_wait, timeout,
+                                   move_schema(schema_order, reason_max_chars)
+                                   if structured else None)
 
     cfg = PROVIDER_DEFAULTS[provider]
+    import httpx
     from openai import OpenAI, APITimeoutError
 
     api_key = cfg["api_key"] or os.environ.get("OPENROUTER_API_KEY") \
         or os.environ.get("OPENAI_API_KEY")
     # max_retries=0: the client would otherwise retry timeouts on its own.
     # Retries are handled in call() below.
-    client = OpenAI(base_url=cfg["base_url"], api_key=api_key, timeout=timeout,
+    client = OpenAI(base_url=base_url, api_key=api_key, timeout=timeout,
                     max_retries=0)
 
     def call(prompt):
@@ -145,32 +273,41 @@ def make_llm(spec,
                         call.last_reasoning = str(alt).strip()
                         break
                 return (msg.content or "").strip()
-            except APITimeoutError:
-                return _timed_out(call)
+            except APITimeoutError as e:
+                # Only a slow answer counts against the model; failing to
+                # connect is a network problem, retried below like any other.
+                if not isinstance(e.__cause__, httpx.ConnectTimeout):
+                    return _timed_out(call)
+                last_err = e
+                if attempt < retries - 1:
+                    time.sleep(retry_wait * (attempt + 1))
             except Exception as e:                    # rate limits, transient 5xx
                 last_err = e
                 if attempt < retries - 1:
                     time.sleep(retry_wait * (attempt + 1))
-        raise RuntimeError(f"{spec} failed after {retries} attempts: {last_err}")
+        raise RuntimeError(f"{spec} failed after {retries} attempts "
+                           f"at {base_url}: {last_err}")
 
     call.spec = spec
+    call.base_url = base_url
     call.last_reasoning = ""
     call.last_finish_reason = None
     return call
 
 
-def _make_ollama_native(spec, model, max_tokens, stop, temperature, system_prompt,
-                        think, retries, retry_wait, timeout):
+def _make_ollama_native(spec, model, base_url, max_tokens, stop, temperature,
+                        system_prompt, think, retries, retry_wait, timeout,
+                        schema):
     """
     Call Ollama's native /api/chat. Its /v1 OpenAI-compatible endpoint ignores
     "think", so this is the only way to switch a thinking model's reasoning off.
     Uses urllib so it needs no extra dependency.
     """
-    import json
     import urllib.error
     import urllib.request
 
-    url = PROVIDER_DEFAULTS["ollama_native"]["base_url"] + "/api/chat"
+    url = base_url + "/api/chat"
+    structured = schema is not None             # a schema means structured output
 
     def call(prompt):
         messages = []
@@ -187,10 +324,14 @@ def _make_ollama_native(spec, model, max_tokens, stop, temperature, system_promp
                    "options": options}
         if think is not None:
             payload["think"] = think
+        if structured:
+            payload["format"] = schema
 
         req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"),
                                      headers={"Content-Type": "application/json"})
         call.last_finish_reason = None
+        call.last_content = ""
+        call.last_structured_ok = False
         last_err = None
         for attempt in range(retries):
             try:
@@ -200,7 +341,15 @@ def _make_ollama_native(spec, model, max_tokens, stop, temperature, system_promp
                 msg = body.get("message", {})
                 # Same contract as the /v1 path: reasoning is display-only.
                 call.last_reasoning = (msg.get("thinking") or "").strip()
-                return (msg.get("content") or "").strip()
+                content = (msg.get("content") or "").strip()
+                call.last_content = content
+                if not structured:
+                    return content
+                parsed = _parse_move_json(content)
+                if parsed is None:
+                    return ""                         # unparseable: invalid reply
+                call.last_structured_ok = True
+                return f"{parsed[0]} | {parsed[1]}"
             except urllib.error.HTTPError as e:
                 # Ollama explains the failure in the body, e.g. "model not found".
                 detail = e.read().decode("utf-8", errors="replace").strip()
@@ -209,19 +358,22 @@ def _make_ollama_native(spec, model, max_tokens, stop, temperature, system_promp
                     break                             # bad request: retrying won't help
                 if attempt < retries - 1:
                     time.sleep(retry_wait * (attempt + 1))
-            except TimeoutError:                      # read timed out (socket.timeout)
+            except TimeoutError:
+                # Connected, but no answer in time: the model's fault, not the
+                # network's. (A connect timeout arrives wrapped in URLError and
+                # is handled below.)
                 return _timed_out(call)
-            except Exception as e:
-                # urllib wraps a connect timeout in URLError; a refused
-                # connection also arrives as URLError but is retried, then raised.
-                if isinstance(getattr(e, "reason", None), TimeoutError):
-                    return _timed_out(call)
-                last_err = e
+            except Exception as e:                    # refused, unreachable, 5xx
+                last_err = getattr(e, "reason", e)
                 if attempt < retries - 1:
                     time.sleep(retry_wait * (attempt + 1))
-        raise RuntimeError(f"{spec} failed after {attempt + 1} attempt(s): {last_err}")
+        raise RuntimeError(f"{spec} failed after {attempt + 1} attempt(s) "
+                           f"at {base_url}: {last_err}")
 
     call.spec = spec
+    call.base_url = base_url
     call.last_reasoning = ""
     call.last_finish_reason = None
+    call.last_content = ""
+    call.last_structured_ok = False
     return call

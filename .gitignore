@@ -17,3 +17,7 @@ spot_results/
 spot_results_heuristic/
 spot_results_random/
 spot_results_40/*/*/llm_outputs/
+
+# local batch launchers and their terminal output
+*.bat
+*_console.txt

@@ -12,6 +12,11 @@ Local model against the heuristic baseline:
 Play against a thinking model with its reasoning switched off:
     python run_games.py --p0 human --p1 ollama_native:qwen3.5:9b --no-think
 
+Local model against a model on another laptop's Ollama (that machine must run
+Ollama with OLLAMA_HOST=0.0.0.0), with JSON replies and last-move context:
+    python run_games.py --p0 ollama_native:qwen3.5:9b \
+        --p1 ollama_native://<host>:11434/qwen2.5vl:3b --structured --last-move
+
 Offline smoke test (no API, no Ollama):
     python run_games.py --p0 dummy --p1 dummy --games 2
 
@@ -20,6 +25,9 @@ Withhold legal moves from the prompt (spot-mode behaviour):
 
 Let a reasoning model actually reason (removes the 60-token cap and newline stop):
     python run_games.py --p0 ollama:deepseek-r1 --p1 heuristic --uncapped
+
+Same, but with a longer token limit instead of none:
+    python run_games.py --p0 ollama:deepseek-r1 --p1 heuristic --max-tokens 1024
 
 Results go to a JSON file (--out), one record per game. The file is rewritten
 after every game, so a run that dies partway keeps the games already played.
@@ -38,10 +46,17 @@ from ludo_env import LudoEnv
 from agents import BaseAgent, RandomAgent, HeuristicAgent
 from llm_agent import LLMAgent
 from evaluation import evaluate
-from llm_backends import make_llm, DEFAULT_SYSTEM_PROMPT, DEFAULT_TIMEOUT
+from llm_backends import (make_llm, parse_spec, check_ollama,
+                          DEFAULT_SYSTEM_PROMPT, DEFAULT_TIMEOUT,
+                          SCHEMA_ORDERS, DEFAULT_SCHEMA_ORDER)
 from board_render import render_board, describe_move, group_moves
 
 BASELINES = {"random": RandomAgent, "heuristic": HeuristicAgent}
+
+
+def is_llm_spec(spec):
+    return not (spec in ("human", "dummy") or spec in BASELINES
+                or spec == "gt" or spec.startswith("gt:"))
 
 
 def _short(text, limit=220):
@@ -102,14 +117,22 @@ class TrackedLLMAgent(LLMAgent):
     still unusable ("stop").
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, structured=False, last_move=False, **kwargs):
         super().__init__(*args, **kwargs)
+        self.structured = structured
+        self.last_move = last_move
         self.calls = 0
         self.invalid = 0
         self.finish_reasons = {}
         self.invalid_by_finish_reason = {}
+        # structured mode only: why an invalid reply was invalid
+        self.invalid_kind = {}
 
     def select_move(self, env, player, dice, legal_moves):
+        if self.last_move:
+            # Worded for this player ("you", "your token"), so set per prompt.
+            mv = getattr(env, "last_move_record", None)
+            env.history_text = last_move_text(env, mv, player) if mv else None
         calls_before = env.llm_calls
         choice = super().select_move(env, player, dice, legal_moves)
         if env.llm_calls == calls_before:          # no model call was made
@@ -120,12 +143,23 @@ class TrackedLLMAgent(LLMAgent):
         if env.last_llm_fallback:
             self.invalid += 1
             _bump(self.invalid_by_finish_reason, why)
+            if self.structured:
+                if why == "timeout":
+                    kind = "timeout"
+                elif self.llm_call.last_structured_ok:
+                    kind = "illegal_piece"         # well-formed, but not a legal move
+                else:
+                    kind = "unparseable"
+                _bump(self.invalid_kind, kind)
         return choice
 
     def stats(self):
-        return {"calls": self.calls, "invalid": self.invalid,
-                "finish_reasons": self.finish_reasons,
-                "invalid_by_finish_reason": self.invalid_by_finish_reason}
+        s = {"calls": self.calls, "invalid": self.invalid,
+             "finish_reasons": self.finish_reasons,
+             "invalid_by_finish_reason": self.invalid_by_finish_reason}
+        if self.structured:
+            s["invalid_by_kind"] = self.invalid_kind
+        return s
 
 
 class WatchAgent(BaseAgent):
@@ -149,6 +183,9 @@ class WatchAgent(BaseAgent):
             raw = getattr(env, "last_llm_raw", None)
             if getattr(env, "last_llm_fallback", False):
                 print("  !! INVALID reply, random legal move substituted")
+                # Structured mode hands LLMAgent "" for unparseable JSON; show
+                # what the model actually sent.
+                raw = raw or getattr(self.inner.llm_call, "last_content", "")
                 print(f"     model said: {_short(raw) if raw else '(empty content)'}")
                 why = getattr(self.inner.llm_call, "last_finish_reason", None)
                 if why:
@@ -180,8 +217,59 @@ def attach_watcher(env, labels, delay=0.0):
     env.apply_move = wrapped
 
 
+def attach_last_move(env):
+    """
+    Record each applied move on env.last_move_record for the --last-move prompt
+    line. env.move_log only keeps {player, capture, to}, so the token, its
+    origin, and whose tokens were captured are taken from the board before and
+    after the move instead.
+    """
+    original = env.apply_move
+
+    def wrapped(player, token_idx, dice):
+        before = {pid: list(env.tokens[pid]) for pid in env.player_ids}
+        result = original(player, token_idx, dice)
+        captured = [pid for pid in env.player_ids if pid != player
+                    for b, a in zip(before[pid], env.tokens[pid])
+                    if b != -1 and a == -1]
+        env.last_move_record = {
+            "player": player, "dice": dice, "token": token_idx,
+            "from": before[player][token_idx], "to": env.tokens[player][token_idx],
+            "captured": captured,
+        }
+        return result
+
+    env.apply_move = wrapped
+
+
+def last_move_text(env, mv, viewer):
+    """One line describing the previous move, from `viewer`'s point of view."""
+    mover = mv["player"]
+    home_end = env.HOME_START + mover * env.HOME_LEN + env.HOME_LEN - 1
+
+    def where(pos):
+        if pos == -1:
+            return "base"
+        if pos < env.BOARD_SIZE:
+            return f"square {pos}"
+        return f"home-path position {pos}"
+
+    who = "You" if mover == viewer else f"Player {mover}"
+    line = (f"Previous move: {who} rolled {mv['dice']} and moved token {mv['token']} "
+            f"from {where(mv['from'])} to {where(mv['to'])}")
+    if mv["to"] == home_end:
+        line += ", finishing that token"
+    for pid in sorted(set(mv["captured"])):
+        n = mv["captured"].count(pid)
+        whose = "your" if pid == viewer else f"Player {pid}'s"
+        line += f", capturing {n} of {whose} tokens" if n > 1 \
+            else f", capturing one of {whose} tokens"
+    return line + "."
+
+
 def build_agent(spec, include_legal_moves, uncapped, labels=None, no_think=False,
-                max_tokens=None):
+                max_tokens=None, structured=False, last_move=False,
+                schema_order=DEFAULT_SCHEMA_ORDER, reason_max_chars=None):
     """spec is 'human', 'random', 'heuristic', 'gt[:depth]', 'dummy',
     or 'provider:model'."""
     if spec == "human":
@@ -205,18 +293,32 @@ def build_agent(spec, include_legal_moves, uncapped, labels=None, no_think=False
         robust = True
     if no_think:
         kwargs.update(think=False)
+    if structured:
+        kwargs.update(structured=True, schema_order=schema_order,
+                      reason_max_chars=reason_max_chars)
     fn = make_llm(spec, **kwargs)
     return TrackedLLMAgent(fn, include_legal_moves_in_prompt=include_legal_moves,
-                           robust_parse=robust), spec
+                           robust_parse=robust, structured=structured,
+                           last_move=last_move), spec
 
 
 def run_games(specs, games, seed0, include_legal_moves, uncapped, out_path,
               max_steps=1000, watch=False, delay=0.0, no_think=False,
-              max_tokens=None):
+              max_tokens=None, structured=False, last_move=False,
+              schema_order=DEFAULT_SCHEMA_ORDER, reason_max_chars=None):
+    # The field order only exists when structured output is on.
+    schema_order = schema_order if structured else None
     # Stored in every record so a results file is self-describing. The capped
     # values are make_llm's defaults, which reproduce the released code.
     # max_tokens is null when uncapped without --max-tokens.
     settings = {
+        "structured_output": structured,
+        "schema_order": schema_order,
+        "reason_max_chars": reason_max_chars,
+        "last_move_context": last_move,
+        # Resolved server per LLM player, e.g. a partner's laptop on the LAN.
+        "llm_endpoints": {str(pid): parse_spec(spec)[2]
+                          for pid, spec in enumerate(specs) if is_llm_spec(spec)},
         "include_legal_moves": include_legal_moves,
         "uncapped": uncapped,
         "max_tokens": max_tokens if uncapped else 60,
@@ -238,13 +340,19 @@ def run_games(specs, games, seed0, include_legal_moves, uncapped, out_path,
         tracked = {}                                # pid -> TrackedLLMAgent
         for pid, spec in zip(env.player_ids, specs):
             agent, label = build_agent(spec, include_legal_moves, uncapped, labels,
-                                       no_think=no_think, max_tokens=max_tokens)
+                                       no_think=no_think, max_tokens=max_tokens,
+                                       structured=structured, last_move=last_move,
+                                       schema_order=schema_order or DEFAULT_SCHEMA_ORDER,
+                                       reason_max_chars=reason_max_chars)
             if isinstance(agent, TrackedLLMAgent):
                 tracked[pid] = agent
             if watch and spec != "human":
                 agent = WatchAgent(agent, label)
             agents[pid] = agent
             labels[pid] = label
+
+        if last_move:
+            attach_last_move(env)
 
         if watch or human_playing:
             print(f"\n{'=' * 58}\n  GAME {g + 1}/{games}  (seed {seed})\n{'=' * 58}")
@@ -324,11 +432,16 @@ def summarise(records, specs):
     for r in records:
         for pid, s in r["llm_players"].items():
             agg = per_player.setdefault((pid, s["model"]),
-                                        {"calls": 0, "invalid": 0, "why": {}})
+                                        {"calls": 0, "invalid": 0, "why": {},
+                                         "kind": None})
             agg["calls"] += s["calls"]
             agg["invalid"] += s["invalid"]
             for why, k in s["invalid_by_finish_reason"].items():
                 agg["why"][why] = agg["why"].get(why, 0) + k
+            if "invalid_by_kind" in s:
+                agg["kind"] = agg["kind"] or {}
+                for kind, k in s["invalid_by_kind"].items():
+                    agg["kind"][kind] = agg["kind"].get(kind, 0) + k
     for (pid, model), agg in sorted(per_player.items()):
         if not agg["calls"]:
             continue
@@ -336,6 +449,9 @@ def summarise(records, specs):
         print(f"  P{pid} {model}: invalid {agg['invalid']}/{agg['calls']} "
               f"({agg['invalid'] / agg['calls']:.1%})"
               + (f"  by finish reason: {why}" if why else ""))
+        if agg["kind"]:
+            kinds = ", ".join(f"{k} {v}" for k, v in sorted(agg["kind"].items()))
+            print(f"      structured: {kinds}")
 
 
 def main():
@@ -352,13 +468,16 @@ def main():
     ap.add_argument("--no-legal-moves", action="store_true",
                     help="withhold the legal-move list from the prompt (spot-mode behaviour)")
     ap.add_argument("--uncapped", action="store_true",
-                    help="remove max_tokens=60 and the newline stop entirely, for "
-                         "reasoning models (still bounded by the request timeout)")
+                    help="remove max_tokens=60 and the newline stop, with no token "
+                         "limit at all (still bounded by the request timeout); "
+                         "use --max-tokens N instead to keep a limit")
     ap.add_argument("--no-think", action="store_true",
                     help="disable a thinking model's reasoning phase; only works with "
                          "ollama_native:<model> (Ollama's /v1 endpoint ignores it)")
     ap.add_argument("--max-tokens", type=int, default=None,
-                    help="optional token limit, only with --uncapped (default: none)")
+                    help="replace the paper's 60-token limit with N and drop the "
+                         "newline stop (default: 60 tokens + newline stop, as in "
+                         "the paper)")
     ap.add_argument("--out", default=None,
                     help="JSON file for per-game records (must not already exist); "
                          "default is a timestamped file in llm_game_results/")
@@ -366,11 +485,26 @@ def main():
                     help="draw the board after every move (spectator mode)")
     ap.add_argument("--delay", type=float, default=0.0,
                     help="seconds to pause after each move when watching")
+    ap.add_argument("--structured", action="store_true",
+                    help="constrain replies to JSON {piece, reason} via Ollama's "
+                         "'format' parameter; every LLM player must be ollama_native")
+    ap.add_argument("--schema-order", default=None,
+                    choices=[o.replace("_", "-") for o in SCHEMA_ORDERS],
+                    help="with --structured: which JSON field the model writes first "
+                         "(default reason-first; piece-first makes it answer before "
+                         "it has reasoned)")
+    ap.add_argument("--reason-max-chars", type=int, default=None, metavar="N",
+                    help="with --structured: limit the reason to N characters inside "
+                         "the schema, so a long-winded model must stop and name its "
+                         "piece instead of running into the token limit (default: "
+                         "no limit)")
+    ap.add_argument("--last-move", action="store_true",
+                    help="add the previous move to the prompt's HISTORY / CONTEXT block")
     args = ap.parse_args()
-    if args.max_tokens is not None and not args.uncapped:
-        # Paper-exact mode is fixed at 60 tokens + newline stop; changing only
-        # the token limit would give a setup that is neither paper nor uncapped.
-        ap.error("--max-tokens requires --uncapped")
+    if args.max_tokens is not None:
+        # A custom token limit always drops the newline stop too: keeping the
+        # stop would give a setup that is neither paper nor uncapped.
+        args.uncapped = True
 
     # Windows writes redirected or piped stdout as cp1252, and printing a model
     # reply containing e.g. U+2011 or an arrow then crashes the run.
@@ -380,6 +514,39 @@ def main():
     specs = [s for s in (args.p0, args.p1, args.p2, args.p3) if s]
     if len(specs) not in (2, 3, 4):
         raise SystemExit("need 2-4 players")
+
+    llm_players = [(pid, s) for pid, s in enumerate(specs) if is_llm_spec(s)]
+    try:
+        resolved = {pid: parse_spec(s) for pid, s in llm_players}
+    except ValueError as e:
+        ap.error(str(e))
+
+    if args.schema_order and not args.structured:
+        ap.error("--schema-order requires --structured")
+    schema_order = (args.schema_order or DEFAULT_SCHEMA_ORDER).replace("-", "_")
+    if args.reason_max_chars is not None:
+        if not args.structured:
+            ap.error("--reason-max-chars requires --structured")
+        if args.reason_max_chars < 1:
+            ap.error("--reason-max-chars must be a positive number")
+
+    if args.structured:
+        other = [s for pid, s in enumerate(specs)
+                 if s == "dummy" or (pid in resolved and resolved[pid][0] != "ollama_native")]
+        if other:
+            ap.error(f"--structured needs every LLM player to be ollama_native; "
+                     f"not: {', '.join(other)}")
+
+    # Check every Ollama server answers before any game starts, so a partner's
+    # laptop that is off or firewalled fails now with its host and port named.
+    for pid, (provider, model, base_url) in resolved.items():
+        where = base_url
+        if provider in ("ollama", "ollama_native"):
+            try:
+                where += f"  (Ollama {check_ollama(base_url)})"
+            except RuntimeError as e:
+                raise SystemExit(f"P{pid} {specs[pid]}: {e}")
+        print(f"P{pid} {model} -> {where}")
 
     if args.no_think:
         ignored = [s for s in specs if s.startswith(("ollama:", "openrouter:"))]
@@ -407,6 +574,12 @@ def main():
     else:
         cap = f"{args.max_tokens} tokens, no newline stop"
     print(f"legal moves in prompt: {not args.no_legal_moves}   output cap: {cap}")
+    structured = "False"
+    if args.structured:
+        limit = (f", reason <= {args.reason_max_chars} chars"
+                 if args.reason_max_chars else "")
+        structured = f"True ({schema_order}{limit})"
+    print(f"structured output: {structured}   last-move context: {args.last_move}")
     print(f"writing to {out}\n")
 
     records = run_games(
@@ -421,6 +594,10 @@ def main():
         delay=args.delay,
         no_think=args.no_think,
         max_tokens=args.max_tokens,
+        structured=args.structured,
+        schema_order=schema_order,
+        reason_max_chars=args.reason_max_chars,
+        last_move=args.last_move,
     )
     summarise(records, specs)
     print(f"\nPer-game records: {out}")
