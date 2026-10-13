@@ -51,9 +51,18 @@ from llm_backends import (make_llm, parse_spec, check_ollama,
                           DEFAULT_SYSTEM_PROMPT, DEFAULT_TIMEOUT,
                           SCHEMA_ORDERS, DEFAULT_SCHEMA_ORDER)
 from board_render import render_board, describe_move, group_moves
-from decision_log import RunLog, GameLog, CONTEXT_MODE, short_hash
+from decision_log import RunLog, GameLog, CONTEXT_MODE, short_hash, move_effects
 
-BASELINES = {"random": RandomAgent, "heuristic": HeuristicAgent}
+class FirstLegalAgent(BaseAgent):
+    """Always moves the first piece of the legal-move list (the lowest index)."""
+
+    def select_move(self, env, player, dice, legal_moves):
+        return legal_moves[0]
+
+
+BASELINES = {"random": RandomAgent, "heuristic": HeuristicAgent,
+             "first": FirstLegalAgent}
+LEGAL_ORDERS = ("ascending", "reversed")
 
 
 def is_llm_spec(spec):
@@ -120,8 +129,11 @@ class _TimedCall:
         self._fn = fn
         self.last_prompt = None
         self.last_latency_ms = None
+        self.edit_prompt = None       # optional prompt -> prompt, set per call
 
     def __call__(self, prompt):
+        if self.edit_prompt is not None:
+            prompt = self.edit_prompt(prompt)
         self.last_prompt = prompt
         t0 = time.perf_counter()
         try:
@@ -144,10 +156,12 @@ class TrackedLLMAgent(LLMAgent):
     """
 
     def __init__(self, llm_call_fn, *args, structured=False, last_move=False,
-                 **kwargs):
+                 move_outcomes=False, legal_order="ascending", **kwargs):
         super().__init__(_TimedCall(llm_call_fn), *args, **kwargs)
         self.structured = structured
         self.last_move = last_move
+        self.move_outcomes = move_outcomes
+        self.legal_order = legal_order
         self.last_decision = None
         self.calls = 0
         self.invalid = 0
@@ -177,11 +191,19 @@ class TrackedLLMAgent(LLMAgent):
     def select_move(self, env, player, dice, legal_moves):
         if self.last_move:
             # Worded for this player ("you", "your token"), so set per prompt.
-            mv = getattr(env, "last_move_record", None)
-            env.history_text = last_move_text(env, mv, player) if mv else None
+            recent = getattr(env, "last_move_records", [])[-int(self.last_move):]
+            env.history_text = last_moves_text(env, recent, player) if recent else None
         self.last_decision = None
         calls_before = env.llm_calls
-        choice = super().select_move(env, player, dice, legal_moves)
+        # The list as the prompt shows it. The decision log keeps the engine's
+        # ascending list either way.
+        shown = list(legal_moves)
+        if self.legal_order == "reversed":
+            shown.reverse()
+        self.llm_call.edit_prompt = None
+        if self.move_outcomes and self.include_legal_moves_in_prompt:
+            self.llm_call.edit_prompt = add_move_outcomes(env, player, dice, shown)
+        choice = super().select_move(env, player, dice, shown)
         if env.llm_calls == calls_before:          # no model call was made
             return choice
 
@@ -297,14 +319,15 @@ def attach_watcher(env, labels, delay=0.0):
     env.apply_move = wrapped
 
 
-def attach_last_move(env):
+def attach_last_move(env, keep=1):
     """
-    Record each applied move on env.last_move_record for the --last-move prompt
-    line. env.move_log only keeps {player, capture, to}, so the token, its
+    Record the last `keep` applied moves on env.last_move_records for the
+    --last-move / --last-moves prompt lines. env.move_log only keeps {player, capture, to}, so the token, its
     origin, and whose tokens were captured are taken from the board before and
     after the move instead.
     """
     original = env.apply_move
+    env.last_move_records = []
 
     def wrapped(player, token_idx, dice):
         before = {pid: list(env.tokens[pid]) for pid in env.player_ids}
@@ -312,18 +335,78 @@ def attach_last_move(env):
         captured = [pid for pid in env.player_ids if pid != player
                     for b, a in zip(before[pid], env.tokens[pid])
                     if b != -1 and a == -1]
-        env.last_move_record = {
+        env.last_move_records.append({
             "player": player, "dice": dice, "token": token_idx,
             "from": before[player][token_idx], "to": env.tokens[player][token_idx],
             "captured": captured,
-        }
+        })
+        del env.last_move_records[:-keep]
         return result
 
     env.apply_move = wrapped
 
 
-def last_move_text(env, mv, viewer):
-    """One line describing the previous move, from `viewer`'s point of view."""
+def move_outcome_text(env, player, dice, token):
+    """One line saying what moving this token would do, for --move-outcomes."""
+    e = move_effects(env, player, dice, token)
+
+    def where(pos):
+        if pos == -1:
+            return "base"
+        if pos < env.BOARD_SIZE:
+            return f"square {pos}"
+        return f"home-path position {pos}"
+
+    line = f"- Token {token}: moves from {where(e['from'])} to {where(e['to'])}"
+    notes = []
+    if e["bring_out"]:
+        notes.append("brings a new token out of base")
+    if e["home_finish"]:
+        notes.append("finishes this token")
+    elif e["in_home"]:
+        notes.append("is in your home path after the move")
+    if e["capture"]:
+        n = len(e["captures"])
+        notes.append("captures an opponent token" if n == 1
+                     else f"captures {n} opponent tokens")
+    if e["safe"]:
+        notes.append("lands on a safe square")
+    return line + (", " + ", ".join(notes) if notes else "") + "."
+
+
+LEGAL_LIST_LEAD = "The following token indices are legal to move this turn:\n"
+
+
+def add_move_outcomes(env, player, dice, shown):
+    """
+    A prompt editor that adds one outcome line per legal move right after the
+    legal-move list. The outcomes are facts the engine computes (destination,
+    capture, safe square, base, home path); no move is recommended.
+    """
+    lines = "\n".join(move_outcome_text(env, player, dice, t) for t in shown)
+    anchor = f"{LEGAL_LIST_LEAD}{shown}\n"
+    block = f"{anchor}\nWhat each legal move does:\n{lines}\n"
+
+    def edit(prompt):
+        if prompt.count(anchor) != 1:
+            raise RuntimeError("--move-outcomes: legal-move list not found in prompt")
+        return prompt.replace(anchor, block)
+    return edit
+
+
+def last_moves_text(env, moves, viewer):
+    """
+    The history block: one line for --last-move, or a short oldest-first list
+    for --last-moves N. Turns with no legal move are not listed.
+    """
+    if len(moves) == 1:
+        return last_move_text(env, moves[0], viewer)
+    lines = [last_move_text(env, mv, viewer, prefix="- ") for mv in moves]
+    return f"Last {len(moves)} moves, oldest first:\n" + "\n".join(lines)
+
+
+def last_move_text(env, mv, viewer, prefix="Previous move: "):
+    """One line describing a move, from `viewer`'s point of view."""
     mover = mv["player"]
     home_end = env.HOME_START + mover * env.HOME_LEN + env.HOME_LEN - 1
 
@@ -335,7 +418,7 @@ def last_move_text(env, mv, viewer):
         return f"home-path position {pos}"
 
     who = "You" if mover == viewer else f"Player {mover}"
-    line = (f"Previous move: {who} rolled {mv['dice']} and moved token {mv['token']} "
+    line = (f"{prefix}{who} rolled {mv['dice']} and moved token {mv['token']} "
             f"from {where(mv['from'])} to {where(mv['to'])}")
     if mv["to"] == home_end:
         line += ", finishing that token"
@@ -349,8 +432,9 @@ def last_move_text(env, mv, viewer):
 
 def build_agent(spec, include_legal_moves, uncapped, labels=None, no_think=False,
                 max_tokens=None, structured=False, last_move=False,
-                schema_order=DEFAULT_SCHEMA_ORDER, reason_max_chars=None):
-    """spec is 'human', 'random', 'heuristic', 'gt[:depth]', 'dummy',
+                schema_order=DEFAULT_SCHEMA_ORDER, reason_max_chars=None,
+                move_outcomes=False, legal_order="ascending"):
+    """spec is 'human', 'random', 'heuristic', 'first', 'gt[:depth]', 'dummy',
     or 'provider:model'."""
     if spec == "human":
         return HumanAgent(labels), "human"
@@ -379,7 +463,8 @@ def build_agent(spec, include_legal_moves, uncapped, labels=None, no_think=False
     fn = make_llm(spec, **kwargs)
     return TrackedLLMAgent(fn, include_legal_moves_in_prompt=include_legal_moves,
                            robust_parse=robust, structured=structured,
-                           last_move=last_move), spec
+                           last_move=last_move, move_outcomes=move_outcomes,
+                           legal_order=legal_order), spec
 
 
 def player_info(specs):
@@ -398,7 +483,7 @@ def run_games(specs, games, seed0, include_legal_moves, uncapped, out_dir, run_i
               max_steps=1000, watch=False, delay=0.0, no_think=False,
               max_tokens=None, structured=False, last_move=False,
               ollama_versions=None, schema_order=DEFAULT_SCHEMA_ORDER,
-              reason_max_chars=None):
+              reason_max_chars=None, move_outcomes=False, legal_order="ascending"):
     players = player_info(specs)
     # The field order only exists when structured output is on.
     schema_order = schema_order if structured else None
@@ -412,7 +497,10 @@ def run_games(specs, games, seed0, include_legal_moves, uncapped, out_dir, run_i
         "structured_output": structured,
         "schema_order": schema_order,
         "reason_max_chars": reason_max_chars,
-        "last_move_context": last_move,
+        "last_move_context": bool(last_move),
+        "last_moves": int(last_move),
+        "move_outcomes": move_outcomes,
+        "legal_order": legal_order,
         # Resolved server per LLM player, e.g. a partner's laptop on the LAN.
         "llm_endpoints": {str(pid): p["host"] for pid, p in players.items()
                           if p["host"]},
@@ -436,7 +524,10 @@ def run_games(specs, games, seed0, include_legal_moves, uncapped, out_dir, run_i
         "schema_order": schema_order,
         "reason_max_chars": reason_max_chars,
         "legal_moves_shown": include_legal_moves,
-        "last_move_context": last_move,
+        "last_move_context": bool(last_move),
+        "last_moves": int(last_move),
+        "move_outcomes": move_outcomes,
+        "legal_order": legal_order,
         "temperature": settings["temperature"],
         "system_prompt_hash": short_hash(DEFAULT_SYSTEM_PROMPT),
         "num_ctx": None,
@@ -460,14 +551,16 @@ def run_games(specs, games, seed0, include_legal_moves, uncapped, out_dir, run_i
                                        no_think=no_think, max_tokens=max_tokens,
                                        structured=structured, last_move=last_move,
                                        schema_order=schema_order or DEFAULT_SCHEMA_ORDER,
-                                       reason_max_chars=reason_max_chars)
+                                       reason_max_chars=reason_max_chars,
+                                       move_outcomes=move_outcomes,
+                                       legal_order=legal_order)
             if watch and spec != "human":
                 agent = WatchAgent(agent, label)
             agents[pid] = agent
             labels[pid] = label
 
         if last_move:
-            attach_last_move(env)
+            attach_last_move(env, keep=int(last_move))
 
         if watch or human_playing:
             print(f"\n{'=' * 58}\n  GAME {g + 1}/{games}  (seed {seed})\n{'=' * 58}")
@@ -564,7 +657,7 @@ def summarise(records, specs):
 def main():
     ap = argparse.ArgumentParser(description="Full Ludo games: LLMs, baselines, or you.")
     ap.add_argument("--p0", default="dummy",
-                    help="agent for player 0: human | random | heuristic | gt[:depth] "
+                    help="agent for player 0: human | random | heuristic | first | gt[:depth] "
                          "| dummy | provider:model")
     ap.add_argument("--p1", default="heuristic", help="agent for player 1")
     ap.add_argument("--p2", default=None, help="agent for player 2 (optional)")
@@ -607,7 +700,25 @@ def main():
                          "no limit)")
     ap.add_argument("--last-move", action="store_true",
                     help="add the previous move to the prompt's HISTORY / CONTEXT block")
+    ap.add_argument("--last-moves", type=int, default=None, metavar="N",
+                    help="add the last N moves (both players') to that block "
+                         "instead; --last-moves 1 is the same as --last-move")
+    ap.add_argument("--move-outcomes", action="store_true",
+                    help="after the legal-move list, add one line per legal move "
+                         "saying where the token lands and whether it captures, "
+                         "reaches a safe square, leaves base or enters the home path")
+    ap.add_argument("--legal-order", default="ascending", choices=LEGAL_ORDERS,
+                    help="order of the legal-move list in the prompt (default "
+                         "ascending, as in the released code)")
     args = ap.parse_args()
+    if args.move_outcomes and args.no_legal_moves:
+        ap.error("--move-outcomes needs the legal-move list in the prompt")
+    if args.last_moves is not None:
+        if args.last_moves < 1:
+            ap.error("--last-moves must be a positive number")
+        if args.last_move and args.last_moves != 1:
+            ap.error("give --last-move or --last-moves N, not both")
+    last_moves = args.last_moves or int(args.last_move)
     if args.max_tokens is not None:
         # A custom token limit always drops the newline stop too: keeping the
         # stop would give a setup that is neither paper nor uncapped.
@@ -686,7 +797,10 @@ def main():
         limit = (f", reason <= {args.reason_max_chars} chars"
                  if args.reason_max_chars else "")
         structured = f"True ({schema_order}{limit})"
-    print(f"structured output: {structured}   last-move context: {args.last_move}")
+    print(f"structured output: {structured}   last-move context: {last_moves or False}")
+    if args.move_outcomes or args.legal_order != "ascending":
+        print(f"move outcomes in prompt: {args.move_outcomes}   "
+              f"legal-move order: {args.legal_order}")
     print(f"writing to {out}\n")
 
     records = run_games(
@@ -706,7 +820,9 @@ def main():
         structured=args.structured,
         schema_order=schema_order,
         reason_max_chars=args.reason_max_chars,
-        last_move=args.last_move,
+        last_move=last_moves,
+        move_outcomes=args.move_outcomes,
+        legal_order=args.legal_order,
     )
     summarise(records, specs)
     print(f"\nLogs: {out}  (decisions.jsonl, games.jsonl, run.json)")
