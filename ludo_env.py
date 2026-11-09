@@ -1,8 +1,13 @@
 import random
 
+import ludo_rules as rules
+
+
 class LudoEnv:
-    def __init__(self, seed=42, num_players=2, player_ids=None):
+    def __init__(self, seed=42, num_players=2, player_ids=None, original_rules=False):
         random.seed(seed)
+        # True: the released LudoBench movement rules (see ludo_rules)
+        self.original_rules = original_rules
         # Move log (list of dicts)
         self.log_file = open("game_log.txt", "w", encoding="utf-8")
         self.llm_log_file = open("llm_log.txt", "w", encoding="utf-8")
@@ -19,15 +24,12 @@ class LudoEnv:
         self.llm_calls = 0
         self.llm_fallbacks = 0
         # Constants
-        self.TOKENS_PER_PLAYER = 4
-        self.BOARD_SIZE = 52
-        self.HOME_START = 52
-        self.HOME_LEN = 6
-        base_starts = [0, 13, 26, 39]
-        self.START_POSITIONS = {pid: base_starts[pid] for pid in self.player_ids}
-
-        # Real Ludo safe squares (standard)
-        self.SAFE_SQUARES = {0, 8, 13, 21, 26, 34, 39, 47}
+        self.TOKENS_PER_PLAYER = rules.TOKENS_PER_PLAYER
+        self.BOARD_SIZE = rules.BOARD_SIZE
+        self.HOME_START = rules.HOME_START
+        self.HOME_LEN = rules.HOME_LEN
+        self.START_POSITIONS = {pid: rules.START_POSITIONS[pid] for pid in self.player_ids}
+        self.SAFE_SQUARES = rules.SAFE_SQUARES
 
         # Game state
         self.current_player_idx = 0
@@ -43,82 +45,19 @@ class LudoEnv:
 
     # ---------- Legal Moves ----------
     def get_legal_moves(self, player, dice):
-      legal = []
-      start = self.START_POSITIONS[player]
-      home_start = self.HOME_START + player * self.HOME_LEN
-      home_end = home_start + self.HOME_LEN - 1
-
-      for i, pos in enumerate(self.tokens[player]):
-
-          # Token in base: can move out only on dice = 6
-          if pos == -1:
-              if dice == 6:
-                  legal.append(i)
-
-          # Token on main board
-          elif 0 <= pos < self.BOARD_SIZE:
-              rel_pos = (pos - start) % self.BOARD_SIZE
-              new_rel = rel_pos + dice
-
-              if new_rel < self.BOARD_SIZE:
-                  new_pos = (start + new_rel) % self.BOARD_SIZE
-                  # Same-player stacking is allowed on safe squares only.
-                  if new_pos not in self.tokens[player] or new_pos in self.SAFE_SQUARES:
-                      legal.append(i)
-              else:
-                  home_step = new_rel - self.BOARD_SIZE
-                  if 1 <= home_step <= self.HOME_LEN:
-                      new_pos = home_start + home_step - 1
-                      # Home-path stacking is allowed.
-                      legal.append(i)
-
-          # Token in home path
-          elif home_start <= pos <= home_end:
-              new_pos = pos + dice
-              if new_pos == home_end:
-                  legal.append(i)
-
-      return legal
-
+        return rules.legal_moves(self.tokens, player, dice, self.original_rules)
 
     # ---------- Apply Move ----------
     def apply_move(self, player, token_idx, dice):
       # Store current position before move
       current_position = self.tokens[player].copy()
-      start = self.START_POSITIONS[player]
-      home_start = self.HOME_START + player * self.HOME_LEN
-      home_end = home_start + self.HOME_LEN - 1
-      
       old_pos = self.tokens[player][token_idx]
-      capture = False
+      after, caught = rules.apply_move(self.tokens, player, token_idx, dice, self.original_rules)
+      for pid in self.player_ids:
+          self.tokens[pid][:] = after[pid]
+      new_pos = self.tokens[player][token_idx]
+      capture = bool(caught)
 
-      # Move from base
-      if old_pos == -1:
-          new_pos = start
-      elif 0 <= old_pos < self.BOARD_SIZE:
-          rel_pos = (old_pos - start) % self.BOARD_SIZE
-          new_rel = rel_pos + dice
-          if new_rel < self.BOARD_SIZE:
-              new_pos = (start + new_rel) % self.BOARD_SIZE
-          else:
-              home_step = new_rel - self.BOARD_SIZE
-              new_pos = home_start + home_step - 1
-      else:
-          new_pos = old_pos + dice
-
-      # Capture logic
-      if 0 <= new_pos < self.BOARD_SIZE and new_pos not in self.SAFE_SQUARES:
-          for opponent in self.player_ids:
-              if opponent == player:
-                  continue
-              for i, opp_pos in enumerate(self.tokens[opponent]):
-                  if opp_pos == new_pos:
-                      self.tokens[opponent][i] = -1
-                      capture = True
-
-      # Apply move
-      self.tokens[player][token_idx] = new_pos
-      
       # Store new position after move
       new_position = self.tokens[player].copy()
       
@@ -153,9 +92,7 @@ class LudoEnv:
 
     # ---------- Win Condition ----------
     def check_winner(self, player):
-        home_start = self.HOME_START + player * self.HOME_LEN
-        home_end = home_start + self.HOME_LEN - 1
-        return all(pos == home_end for pos in self.tokens[player])
+        return rules.has_won(self.tokens, player)
 
     # ---------- One Step ----------
     def step(self, agents):

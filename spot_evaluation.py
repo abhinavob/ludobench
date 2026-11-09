@@ -3,22 +3,22 @@ import json
 import os
 import re
 
+import ludo_rules as rules
 from agents import HeuristicAgent
 from llm_agent import LLMAgent
 
 
 class SpotEnv:
-    def __init__(self, player_ids, tokens):
+    def __init__(self, player_ids, tokens, original_rules=False):
         self.player_ids = list(player_ids)
         self.NUM_PLAYERS = len(self.player_ids)
-        self.TOKENS_PER_PLAYER = 4
-        self.BOARD_SIZE = 52
-        self.HOME_START = 52
-        self.HOME_LEN = 6
-        self.SAFE_SQUARES = {0, 8, 13, 21, 26, 34, 39, 47}
-
-        base_starts = [0, 13, 26, 39]
-        self.START_POSITIONS = {pid: base_starts[pid] for pid in self.player_ids}
+        self.original_rules = original_rules
+        self.TOKENS_PER_PLAYER = rules.TOKENS_PER_PLAYER
+        self.BOARD_SIZE = rules.BOARD_SIZE
+        self.HOME_START = rules.HOME_START
+        self.HOME_LEN = rules.HOME_LEN
+        self.SAFE_SQUARES = rules.SAFE_SQUARES
+        self.START_POSITIONS = {pid: rules.START_POSITIONS[pid] for pid in self.player_ids}
 
         self.tokens = tokens
 
@@ -29,36 +29,7 @@ class SpotEnv:
 
 
 def compute_legal_moves(env, player, dice):
-    legal = []
-    start = env.START_POSITIONS[player]
-    home_start = env.HOME_START + player * env.HOME_LEN
-    home_end = home_start + env.HOME_LEN - 1
-
-    for i, pos in enumerate(env.tokens[player]):
-        if pos == -1:
-            if dice == 6:
-                legal.append(i)
-        elif 0 <= pos < env.BOARD_SIZE:
-            rel_pos = (pos - start) % env.BOARD_SIZE
-            new_rel = rel_pos + dice
-
-            if new_rel < env.BOARD_SIZE:
-                new_pos = (start + new_rel) % env.BOARD_SIZE
-                # Same-player stacking is allowed on safe squares only.
-                if new_pos not in env.tokens[player] or new_pos in env.SAFE_SQUARES:
-                    legal.append(i)
-            else:
-                home_step = new_rel - env.BOARD_SIZE
-                if 1 <= home_step <= env.HOME_LEN:
-                    new_pos = home_start + home_step - 1
-                    # Home-path stacking is allowed.
-                    legal.append(i)
-        elif home_start <= pos <= home_end:
-            new_pos = pos + dice
-            if new_pos == home_end:
-                legal.append(i)
-
-    return legal
+    return rules.legal_moves(env.tokens, player, dice, env.original_rules)
 
 
 def evaluate_spot(
@@ -123,7 +94,7 @@ def evaluate_spot(
             response_int = int(left.strip())
             response_reason = reason.strip()
         else:
-            m = re.search(r"-?\\d+", text)
+            m = re.search(r"-?\d+", text)
             if m:
                 response_int = int(m.group())
     except Exception:

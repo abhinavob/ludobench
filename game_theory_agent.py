@@ -1,7 +1,18 @@
 import math
-from typing import Dict, List, Tuple
 
+import ludo_rules as rules
 from agents import BaseAgent, HeuristicAgent
+
+
+def best_move(values, legal_moves, original):
+    """
+    The move with the highest value. With original rules: the first best move in
+    legal-move order, comparing raw floats. Otherwise values are rounded to 1e-9
+    and ties go to the lowest piece index.
+    """
+    if original:
+        return max(legal_moves, key=values.get)
+    return min(legal_moves, key=lambda m: (-round(values[m], 9), m))
 
 
 class GameTheoryAgent(BaseAgent):
@@ -9,7 +20,7 @@ class GameTheoryAgent(BaseAgent):
     2-player expectiminimax agent (chance-aware minimax).
 
     Notes:
-    - Optimized for the current ludo_env.py rule set.
+    - Moves follow ludo_rules; env.original_rules selects the released movement.
     - Falls back to HeuristicAgent for non-2-player games.
     """
 
@@ -18,6 +29,8 @@ class GameTheoryAgent(BaseAgent):
         self._fallback = HeuristicAgent()
         self._cache = {}
         self._root_player = None
+        self._player_ids = ()
+        self._original = False
 
     def select_move(self, env, player, dice, legal_moves):
         if len(env.player_ids) != 2:
@@ -25,170 +38,42 @@ class GameTheoryAgent(BaseAgent):
 
         self._cache.clear()
         self._root_player = player
+        self._player_ids = tuple(env.player_ids)
+        self._original = env.original_rules
 
-        starts = dict(env.START_POSITIONS)
-        state = {pid: tuple(env.tokens[pid]) for pid in env.player_ids}
-
-        best_move = legal_moves[0]
-        best_val = -math.inf
+        state = {pid: tuple(env.tokens[pid]) for pid in self._player_ids}
+        values = {}
         for move in legal_moves:
-            next_state, winner = self._apply_move(
-                state=state,
-                player=player,
-                token_idx=move,
-                dice=dice,
-                starts=starts,
-                safe_squares=env.SAFE_SQUARES,
-                board_size=env.BOARD_SIZE,
-                home_start_global=env.HOME_START,
-                home_len=env.HOME_LEN,
-                player_ids=env.player_ids,
-            )
+            next_state, winner = self._apply_move(state, player, move, dice)
             if winner is not None:
-                val = 1.0 if winner == self._root_player else -1.0
+                values[move] = 1.0 if winner == self._root_player else -1.0
             else:
-                next_player = player if dice == 6 else self._other_player(env.player_ids, player)
-                val = self._chance_value(
-                    state=next_state,
-                    current_player=next_player,
-                    depth=self.search_depth - 1,
-                    starts=starts,
-                    safe_squares=env.SAFE_SQUARES,
-                    board_size=env.BOARD_SIZE,
-                    home_start_global=env.HOME_START,
-                    home_len=env.HOME_LEN,
-                    player_ids=env.player_ids,
-                )
+                next_player = player if dice == 6 else self._other_player(player)
+                values[move] = self._chance_value(next_state, next_player, self.search_depth - 1)
+        return best_move(values, legal_moves, self._original)
 
-            if val > best_val:
-                best_val = val
-                best_move = move
+    def _other_player(self, player):
+        ids = self._player_ids
+        return ids[1] if ids[0] == player else ids[0]
 
-        return best_move
-
-    @staticmethod
-    def _other_player(player_ids: List[int], player: int) -> int:
-        return player_ids[1] if player_ids[0] == player else player_ids[0]
-
-    @staticmethod
-    def _home_start(home_start_global: int, home_len: int, player: int) -> int:
-        return home_start_global + player * home_len
-
-    @staticmethod
-    def _home_end(home_start_global: int, home_len: int, player: int) -> int:
-        return home_start_global + player * home_len + home_len - 1
-
-    def _terminal_winner(self, state, player_ids, home_start_global, home_len):
-        for pid in player_ids:
-            he = self._home_end(home_start_global, home_len, pid)
-            if all(pos == he for pos in state[pid]):
+    def _terminal_winner(self, state):
+        for pid in self._player_ids:
+            if rules.has_won(state, pid):
                 return pid
         return None
 
-    def _legal_moves(
-        self,
-        state,
-        player,
-        dice,
-        starts,
-        safe_squares,
-        board_size,
-        home_start_global,
-        home_len,
-    ):
-        legal = []
-        start = starts[player]
-        home_start = self._home_start(home_start_global, home_len, player)
-        home_end = self._home_end(home_start_global, home_len, player)
-        own_tokens = state[player]
+    def _apply_move(self, state, player, token_idx, dice):
+        after, _ = rules.apply_move(state, player, token_idx, dice, self._original)
+        next_state = {pid: tuple(after[pid]) for pid in self._player_ids}
+        return next_state, self._terminal_winner(next_state)
 
-        for i, pos in enumerate(own_tokens):
-            if pos == -1:
-                if dice == 6:
-                    legal.append(i)
-            elif 0 <= pos < board_size:
-                rel_pos = (pos - start) % board_size
-                new_rel = rel_pos + dice
-                if new_rel < board_size:
-                    new_pos = (start + new_rel) % board_size
-                    # Stacking allowed on safe squares; blocked on non-safe squares.
-                    if new_pos not in own_tokens or new_pos in safe_squares:
-                        legal.append(i)
-                else:
-                    home_step = new_rel - board_size
-                    if 1 <= home_step <= home_len:
-                        # Home-path stacking allowed.
-                        legal.append(i)
-            elif home_start <= pos <= home_end:
-                new_pos = pos + dice
-                if new_pos == home_end:
-                    legal.append(i)
-
-        return legal
-
-    def _apply_move(
-        self,
-        state,
-        player,
-        token_idx,
-        dice,
-        starts,
-        safe_squares,
-        board_size,
-        home_start_global,
-        home_len,
-        player_ids,
-    ):
-        tokens = {pid: list(state[pid]) for pid in player_ids}
-
-        start = starts[player]
-        home_start = self._home_start(home_start_global, home_len, player)
-
-        old_pos = tokens[player][token_idx]
-        if old_pos == -1:
-            new_pos = start
-        elif 0 <= old_pos < board_size:
-            rel_pos = (old_pos - start) % board_size
-            new_rel = rel_pos + dice
-            if new_rel < board_size:
-                new_pos = (start + new_rel) % board_size
-            else:
-                home_step = new_rel - board_size
-                new_pos = home_start + home_step - 1
-        else:
-            new_pos = old_pos + dice
-
-        # Capture: only on non-safe main-board squares.
-        if 0 <= new_pos < board_size and new_pos not in safe_squares:
-            for opp in player_ids:
-                if opp == player:
-                    continue
-                for j, opp_pos in enumerate(tokens[opp]):
-                    if opp_pos == new_pos:
-                        tokens[opp][j] = -1
-
-        tokens[player][token_idx] = new_pos
-        next_state = {pid: tuple(tokens[pid]) for pid in player_ids}
-        winner = self._terminal_winner(next_state, player_ids, home_start_global, home_len)
-        return next_state, winner
-
-    def _evaluate_state(
-        self,
-        state,
-        player_ids,
-        starts,
-        safe_squares,
-        board_size,
-        home_start_global,
-        home_len,
-    ):
+    def _evaluate_state(self, state):
         me = self._root_player
-        opp = self._other_player(player_ids, me)
+        opp = self._other_player(me)
 
         def progress(pid):
-            hs = self._home_start(home_start_global, home_len, pid)
-            he = self._home_end(home_start_global, home_len, pid)
-            st = starts[pid]
+            hs, he = rules.home_range(pid)
+            st = rules.START_POSITIONS[pid]
             total = 0.0
             base = 0
             finished = 0
@@ -199,13 +84,13 @@ class GameTheoryAgent(BaseAgent):
                     continue
                 if pos == he:
                     finished += 1
-                if 0 <= pos < board_size:
-                    rel = (pos - st) % board_size
+                if 0 <= pos < rules.BOARD_SIZE:
+                    rel = (pos - st) % rules.BOARD_SIZE
                     total += rel + 1
-                    if pos in safe_squares:
+                    if pos in rules.SAFE_SQUARES:
                         safe_count += 1
                 elif pos >= hs:
-                    total += board_size + (pos - hs + 1)
+                    total += rules.BOARD_SIZE + (pos - hs + 1)
             return total, base, finished, safe_count
 
         me_prog, me_base, me_fin, me_safe = progress(me)
@@ -219,53 +104,22 @@ class GameTheoryAgent(BaseAgent):
         score += 0.01 * (me_safe - op_safe)
         return max(-0.999, min(0.999, score))
 
-    def _decision_value(
-        self,
-        state,
-        current_player,
-        dice,
-        depth,
-        starts,
-        safe_squares,
-        board_size,
-        home_start_global,
-        home_len,
-        player_ids,
-    ):
-        winner = self._terminal_winner(state, player_ids, home_start_global, home_len)
+    def _decision_value(self, state, current_player, dice, depth):
+        winner = self._terminal_winner(state)
         if winner is not None:
             return 1.0 if winner == self._root_player else -1.0
         if depth <= 0:
-            return self._evaluate_state(
-                state, player_ids, starts, safe_squares, board_size, home_start_global, home_len
-            )
+            return self._evaluate_state(state)
 
-        cache_key = (
-            "D",
-            tuple((pid, state[pid]) for pid in player_ids),
-            current_player,
-            dice,
-            depth,
-        )
+        cache_key = ("D", tuple((pid, state[pid]) for pid in self._player_ids),
+                     current_player, dice, depth)
         if cache_key in self._cache:
             return self._cache[cache_key]
 
-        legal = self._legal_moves(
-            state, current_player, dice, starts, safe_squares, board_size, home_start_global, home_len
-        )
+        legal = rules.legal_moves(state, current_player, dice, self._original)
         if not legal:
-            next_player = current_player if dice == 6 else self._other_player(player_ids, current_player)
-            val = self._chance_value(
-                state,
-                next_player,
-                depth - 1,
-                starts,
-                safe_squares,
-                board_size,
-                home_start_global,
-                home_len,
-                player_ids,
-            )
+            next_player = current_player if dice == 6 else self._other_player(current_player)
+            val = self._chance_value(state, next_player, depth - 1)
             self._cache[cache_key] = val
             return val
 
@@ -273,33 +127,12 @@ class GameTheoryAgent(BaseAgent):
         best = -math.inf if maximizing else math.inf
 
         for move in legal:
-            next_state, winner = self._apply_move(
-                state,
-                current_player,
-                move,
-                dice,
-                starts,
-                safe_squares,
-                board_size,
-                home_start_global,
-                home_len,
-                player_ids,
-            )
+            next_state, winner = self._apply_move(state, current_player, move, dice)
             if winner is not None:
                 val = 1.0 if winner == self._root_player else -1.0
             else:
-                next_player = current_player if dice == 6 else self._other_player(player_ids, current_player)
-                val = self._chance_value(
-                    next_state,
-                    next_player,
-                    depth - 1,
-                    starts,
-                    safe_squares,
-                    board_size,
-                    home_start_global,
-                    home_len,
-                    player_ids,
-                )
+                next_player = current_player if dice == 6 else self._other_player(current_player)
+                val = self._chance_value(next_state, next_player, depth - 1)
 
             if maximizing:
                 if val > best:
@@ -311,44 +144,21 @@ class GameTheoryAgent(BaseAgent):
         self._cache[cache_key] = best
         return best
 
-    def _chance_value(
-        self,
-        state,
-        current_player,
-        depth,
-        starts,
-        safe_squares,
-        board_size,
-        home_start_global,
-        home_len,
-        player_ids,
-    ):
-        winner = self._terminal_winner(state, player_ids, home_start_global, home_len)
+    def _chance_value(self, state, current_player, depth):
+        winner = self._terminal_winner(state)
         if winner is not None:
             return 1.0 if winner == self._root_player else -1.0
         if depth <= 0:
-            return self._evaluate_state(
-                state, player_ids, starts, safe_squares, board_size, home_start_global, home_len
-            )
+            return self._evaluate_state(state)
 
-        cache_key = ("C", tuple((pid, state[pid]) for pid in player_ids), current_player, depth)
+        cache_key = ("C", tuple((pid, state[pid]) for pid in self._player_ids),
+                     current_player, depth)
         if cache_key in self._cache:
             return self._cache[cache_key]
 
         total = 0.0
         for dice in (1, 2, 3, 4, 5, 6):
-            total += (1.0 / 6.0) * self._decision_value(
-                state,
-                current_player,
-                dice,
-                depth,
-                starts,
-                safe_squares,
-                board_size,
-                home_start_global,
-                home_len,
-                player_ids,
-            )
+            total += (1.0 / 6.0) * self._decision_value(state, current_player, dice, depth)
 
         self._cache[cache_key] = total
         return total

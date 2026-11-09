@@ -24,8 +24,8 @@ import subprocess
 import sys
 import time
 
+import ludo_rules as rules
 from agents import HeuristicAgent
-from board_render import move_outcome
 
 SCHEMA_VERSION = 1
 CONTEXT_MODE = "stateless"
@@ -42,9 +42,9 @@ DEFINITIONS = {
     "seat_position": "index of the player in turn order",
     "positions": "-1 base, 0-51 main track, >=52 home path (player-specific); "
                  "see engine.home_ranges",
-    "progress": "per token: 0 in base, 1 + pips moved since leaving base otherwise "
-                "(track 1-52, home path 54-59, finished 59); summed over a player's "
-                "tokens. 53 is unreachable because the engine rejects home_step 0",
+    "progress": "per token: 0 in base, otherwise 1 + pips from its start square "
+                "along its route (finished: 58; with original_rules 59, and 53 is "
+                "unreachable); summed over a player's tokens",
     "piece_counts": "home_path excludes finished tokens",
     "action_class": "one label per move, first match of: bring_out, home_finish, "
                     "home_entry, capture, safe, advance",
@@ -92,17 +92,10 @@ def snapshot(env):
     return {str(pid): list(env.tokens[pid]) for pid in env.player_ids}
 
 
-def home_range(env, pid):
-    home_start = env.HOME_START + pid * env.HOME_LEN
-    return home_start, home_start + env.HOME_LEN - 1
-
-
 def token_progress(env, pid, pos):
     if pos == -1:
         return 0
-    if pos < env.BOARD_SIZE:
-        return 1 + (pos - env.START_POSITIONS[pid]) % env.BOARD_SIZE
-    return 1 + env.BOARD_SIZE + (pos - home_range(env, pid)[0]) + 1
+    return 1 + rules.route_index(pid, pos, env.original_rules)
 
 
 def progress(env):
@@ -113,7 +106,7 @@ def progress(env):
 def piece_counts(env):
     counts = {}
     for pid in env.player_ids:
-        home_end = home_range(env, pid)[1]
+        home_end = rules.home_range(pid)[1]
         toks = env.tokens[pid]
         counts[str(pid)] = {
             "base": sum(p == -1 for p in toks),
@@ -126,86 +119,32 @@ def piece_counts(env):
 
 def move_effects(env, player, dice, token_idx):
     """What moving this token would do, read from the position before the move."""
-    old = env.tokens[player][token_idx]
-    new_pos, _, home_end = move_outcome(env, player, dice, token_idx)
-    on_track = 0 <= new_pos < env.BOARD_SIZE
-    safe = new_pos in env.SAFE_SQUARES
-    captures = []
-    if on_track and not safe:
-        captures = [{"player": opp, "token": i}
-                    for opp in env.player_ids if opp != player
-                    for i, p in enumerate(env.tokens[opp]) if p == new_pos]
-    bring_out = old == -1
-    finish = new_pos == home_end
-    in_home = new_pos >= env.BOARD_SIZE
-    if bring_out:
+    e = rules.move_outcome(env.tokens, player, token_idx, dice, env.original_rules)
+    captures = [{"player": opp, "token": i} for opp, i in e["captures"]]
+    if e["bring_out"]:
         action = "bring_out"
-    elif finish:
+    elif e["home_finish"]:
         action = "home_finish"
-    elif in_home:
+    elif e["in_home"]:
         action = "home_entry"
     elif captures:
         action = "capture"
-    elif safe:
+    elif e["safe"]:
         action = "safe"
     else:
         action = "advance"
-    return {"from": old, "to": new_pos, "action_class": action, "captures": captures,
-            "safe": safe, "in_home": in_home, "home_finish": finish,
-            "bring_out": bring_out, "capture": bool(captures)}
+    return {"from": e["from"], "to": e["to"], "action_class": action, "captures": captures,
+            "safe": e["safe"], "in_home": e["in_home"], "home_finish": e["home_finish"],
+            "bring_out": e["bring_out"], "capture": bool(captures)}
 
 
 def is_exposed(env, player, pos):
     """Could an opponent token capture a token of `player` on `pos` with one roll?"""
     if not (0 <= pos < env.BOARD_SIZE) or pos in env.SAFE_SQUARES:
         return False
-    for opp in env.player_ids:
-        if opp == player:
-            continue
-        start = env.START_POSITIONS[opp]
-        for q in env.tokens[opp]:
-            if not (0 <= q < env.BOARD_SIZE):
-                continue
-            dist = (pos - q) % env.BOARD_SIZE
-            # the opponent token must still be on the track after moving `dist`
-            if 1 <= dist <= 6 and (q - start) % env.BOARD_SIZE + dist < env.BOARD_SIZE:
-                return True
-    return False
-
-
-def heuristic_scores(env, player, dice, legal_moves):
-    """
-    Score per legal token, mirroring agents.HeuristicAgent.select_move line for
-    line (that method only returns the best token, not the scores).
-    """
-    scores = {}
-    for token in legal_moves:
-        pos = env.tokens[player][token]
-        if pos == -1:
-            score = 50
-        else:
-            if 0 <= pos < env.BOARD_SIZE:
-                start = env.START_POSITIONS[player]
-                new_rel = (pos - start) % env.BOARD_SIZE + dice
-                if new_rel < env.BOARD_SIZE:
-                    new_pos = (start + new_rel) % env.BOARD_SIZE
-                    score = new_rel
-                else:
-                    home_step = new_rel - env.BOARD_SIZE
-                    new_pos = (env.HOME_START + player * env.HOME_LEN) + home_step - 1
-                    score = env.BOARD_SIZE + home_step
-            else:
-                new_pos = pos + dice
-                home_step = (new_pos - (env.HOME_START + player * env.HOME_LEN)) + 1
-                score = env.BOARD_SIZE + home_step
-            if 0 <= new_pos < env.BOARD_SIZE and new_pos not in env.SAFE_SQUARES:
-                for opponent in env.player_ids:
-                    if opponent != player and new_pos in env.tokens[opponent]:
-                        score += 100
-            if new_pos in env.SAFE_SQUARES:
-                score += 20
-        scores[str(token)] = score
-    return scores
+    return any(rules.destination(opp, q, d, env.original_rules) == pos
+               for opp in env.player_ids if opp != player
+               for q in env.tokens[opp] for d in range(1, 7))
 
 
 # ---------- environment facts for run.json ----------
@@ -279,13 +218,14 @@ class RunLog:
             "settings": settings,
             "config_on_every_decision": config,
             "engine": {
+                "original_rules": env.original_rules,
                 "player_ids": list(env.player_ids),
                 "tokens_per_player": env.TOKENS_PER_PLAYER,
                 "board_size": env.BOARD_SIZE,
                 "safe_squares": sorted(env.SAFE_SQUARES),
                 "start_positions": {str(p): env.START_POSITIONS[p]
                                     for p in env.player_ids},
-                "home_ranges": {str(p): list(home_range(env, p))
+                "home_ranges": {str(p): list(rules.home_range(p))
                                 for p in env.player_ids},
             },
             "games": {"attempted": 0, "completed": 0, "errored": 0},
@@ -409,7 +349,8 @@ class GameLog:
                 for kind in AVAILABILITY_KINDS},
             "heuristic_move": (self._heuristic.select_move(env, player, dice, legal)
                                if legal else None),
-            "heuristic_scores": heuristic_scores(env, player, dice, legal),
+            "heuristic_scores": {str(t): v for t, v in
+                                 self._heuristic.scores(env, player, dice, legal).items()},
         }
 
     def _model_fields(self, player, skipped):

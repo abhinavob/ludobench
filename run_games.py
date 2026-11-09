@@ -43,6 +43,7 @@ import re
 import sys
 import time
 
+import ludo_rules as rules
 from ludo_env import LudoEnv
 from agents import BaseAgent, RandomAgent, HeuristicAgent
 from llm_agent import LLMAgent
@@ -408,7 +409,7 @@ def last_moves_text(env, moves, viewer):
 def last_move_text(env, mv, viewer, prefix="Previous move: "):
     """One line describing a move, from `viewer`'s point of view."""
     mover = mv["player"]
-    home_end = env.HOME_START + mover * env.HOME_LEN + env.HOME_LEN - 1
+    home_end = rules.home_range(mover)[1]
 
     def where(pos):
         if pos == -1:
@@ -483,7 +484,8 @@ def run_games(specs, games, seed0, include_legal_moves, uncapped, out_dir, run_i
               max_steps=1000, watch=False, delay=0.0, no_think=False,
               max_tokens=None, structured=False, last_move=False,
               ollama_versions=None, schema_order=DEFAULT_SCHEMA_ORDER,
-              reason_max_chars=None, move_outcomes=False, legal_order="ascending"):
+              reason_max_chars=None, move_outcomes=False, legal_order="ascending",
+              original_rules=False):
     players = player_info(specs)
     # The field order only exists when structured output is on.
     schema_order = schema_order if structured else None
@@ -491,6 +493,7 @@ def run_games(specs, games, seed0, include_legal_moves, uncapped, out_dir, run_i
     # are make_llm's defaults, which reproduce the released code. max_tokens is
     # null when uncapped without --max-tokens.
     settings = {
+        "original_rules": original_rules,
         "specs": list(specs),
         "games": games,
         "seed0": seed0,
@@ -516,6 +519,7 @@ def run_games(specs, games, seed0, include_legal_moves, uncapped, out_dir, run_i
     }
     # Copied onto every decision record. num_ctx is filled in per player.
     config = {
+        "original_rules": original_rules,
         "no_think": no_think,
         "uncapped": uncapped,
         "max_tokens": settings["max_tokens"],
@@ -538,7 +542,7 @@ def run_games(specs, games, seed0, include_legal_moves, uncapped, out_dir, run_i
     records = []
     for g in range(games):
         seed = seed0 + g
-        env = LudoEnv(seed=seed, num_players=len(specs))
+        env = LudoEnv(seed=seed, num_players=len(specs), original_rules=original_rules)
         if run is None:                             # needs an env for its constants
             run = RunLog(out_dir, run_id, players, settings, config,
                          ollama_versions or {}, env)
@@ -710,6 +714,9 @@ def main():
     ap.add_argument("--legal-order", default="ascending", choices=LEGAL_ORDERS,
                     help="order of the legal-move list in the prompt (default "
                          "ascending, as in the released code)")
+    ap.add_argument("--original-rules", action="store_true",
+                    help="play by the released LudoBench rules, to reproduce the "
+                         "original paper and its logged games")
     args = ap.parse_args()
     if args.move_outcomes and args.no_legal_moves:
         ap.error("--move-outcomes needs the legal-move list in the prompt")
@@ -801,6 +808,7 @@ def main():
     if args.move_outcomes or args.legal_order != "ascending":
         print(f"move outcomes in prompt: {args.move_outcomes}   "
               f"legal-move order: {args.legal_order}")
+    print("rules: " + ("original (released LudoBench)" if args.original_rules else "ours"))
     print(f"writing to {out}\n")
 
     records = run_games(
@@ -823,6 +831,7 @@ def main():
         last_move=last_moves,
         move_outcomes=args.move_outcomes,
         legal_order=args.legal_order,
+        original_rules=args.original_rules,
     )
     summarise(records, specs)
     print(f"\nLogs: {out}  (decisions.jsonl, games.jsonl, run.json)")

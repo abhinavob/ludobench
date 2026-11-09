@@ -4,10 +4,11 @@ Shared terminal board renderer for Ludo.
 Used by run_games.py, for human play and --watch spectator mode, so there is
 exactly one copy of the board geometry.
 
-The engine (ludo_env.py) has no notion of geometry: it stores positions as
-integers (-1 base, 0-51 main track, >=52 home path) and does modular arithmetic.
-Everything here is presentation layered on top of that.
+The rules (ludo_rules.py) have no notion of geometry: they store positions as
+integers (-1 base, 0-51 main track, >=52 home path). Everything here is
+presentation layered on top of that.
 """
+import ludo_rules as rules
 
 
 def _build_track():
@@ -68,7 +69,7 @@ def render_board(env, highlight=None, use_colour=True, labels=None):
 
     occupants = {}
     for pid in env.player_ids:
-        home_start = env.HOME_START + pid * env.HOME_LEN
+        home_start = rules.home_range(pid)[0]
         for t_idx, pos in enumerate(env.tokens[pid]):
             if pos == -1:
                 continue
@@ -96,8 +97,7 @@ def render_board(env, highlight=None, use_colour=True, labels=None):
     print()
 
     for pid in env.player_ids:
-        home_start = env.HOME_START + pid * env.HOME_LEN
-        home_end = home_start + env.HOME_LEN - 1
+        home_start, home_end = rules.home_range(pid)
         parts = []
         for pos in env.tokens[pid]:
             if pos == -1:
@@ -118,39 +118,28 @@ def render_board(env, highlight=None, use_colour=True, labels=None):
 
 
 def move_outcome(env, player, dice, token_idx):
-    """Predict landing position. Mirrors ludo_env.apply_move arithmetic."""
-    start = env.START_POSITIONS[player]
-    home_start = env.HOME_START + player * env.HOME_LEN
-    home_end = home_start + env.HOME_LEN - 1
+    """Landing position of a legal move and a short label for it."""
     pos = env.tokens[player][token_idx]
+    new_pos = rules.destination(player, pos, dice, env.original_rules)
+    home_start, home_end = rules.home_range(player)
 
-    if pos == -1:
-        return start, "leave base", home_end
-    if 0 <= pos < env.BOARD_SIZE:
-        rel = (pos - start) % env.BOARD_SIZE
-        new_rel = rel + dice
-        if new_rel < env.BOARD_SIZE:
-            new_pos = (start + new_rel) % env.BOARD_SIZE
-            return new_pos, f"sq{pos} -> sq{new_pos}", home_end
-        step = new_rel - env.BOARD_SIZE
-        new_pos = home_start + step - 1
-        return new_pos, f"sq{pos} -> home+{new_pos - home_start}", home_end
-    new_pos = pos + dice
-    return new_pos, f"home+{pos - home_start} -> finish", home_end
+    def where(p):
+        if p == home_end:
+            return "finish"
+        return f"sq{p}" if p < rules.BOARD_SIZE else f"home+{p - home_start}"
+    return new_pos, ("leave base" if pos == -1 else f"{where(pos)} -> {where(new_pos)}")
 
 
 def describe_move(env, player, dice, token_idx):
-    new_pos, label, home_end = move_outcome(env, player, dice, token_idx)
+    _, label = move_outcome(env, player, dice, token_idx)
+    out = rules.move_outcome(env.tokens, player, token_idx, dice, env.original_rules)
     extras = []
-    if new_pos == home_end:
+    if out["home_finish"]:
         extras.append("FINISHES this token")
-    if 0 <= new_pos < env.BOARD_SIZE:
-        if new_pos in env.SAFE_SQUARES:
-            extras.append("safe square")
-        else:
-            for opp in env.player_ids:
-                if opp != player and new_pos in env.tokens[opp]:
-                    extras.append(f"CAPTURES a P{opp} token")
+    if out["safe"]:
+        extras.append("safe square")
+    for opp in dict.fromkeys(opp for opp, _ in out["captures"]):
+        extras.append(f"CAPTURES a P{opp} token")
     text = f"token {token_idx}: {label}"
     return text + ("   [" + ", ".join(extras) + "]" if extras else "")
 
@@ -159,7 +148,7 @@ def group_moves(env, player, dice, legal_moves):
     """Group legal moves with identical outcomes (e.g. any base token leaving)."""
     groups = {}
     for t in legal_moves:
-        new_pos, _, _ = move_outcome(env, player, dice, t)
+        new_pos, _ = move_outcome(env, player, dice, t)
         key = (env.tokens[player][t] == -1, new_pos)
         groups.setdefault(key, []).append(t)
     return list(groups.values())
