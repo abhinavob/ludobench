@@ -164,8 +164,8 @@ def is_exposed(env, player, pos):
 def git_state():
     def git(*args):
         try:
-            return subprocess.run(["git", *args], capture_output=True, text=True,
-                                  timeout=10).stdout.strip()
+            return subprocess.run(["git", *args], capture_output=True, text=True, timeout=10,
+                                  cwd=os.path.dirname(os.path.abspath(__file__))).stdout.strip()
         except Exception:
             return None
     commit = git("rev-parse", "HEAD") or None

@@ -1,43 +1,37 @@
 """
-Run full Ludo games between two (or more) LLMs, or an LLM against a baseline.
+Run full Ludo games between LLMs, bots or you, and log every decision.
 
-Examples
---------
-Two local Ollama models, 5 games each side:
-    python run_games.py --p0 ollama:llama3.2 --p1 ollama:qwen2.5:7b --games 5
+With no switches a run uses the standard setup: our rules, the JSON reply
+(reason first, at most 500 characters), a 1,024-token ceiling (8,192 when the
+model thinks), legal moves shown in piece order, no move outcomes, no history.
 
-Local model against the heuristic baseline:
-    python run_games.py --p0 ollama:llama3.2 --p1 heuristic --games 10
+    python run_games.py --players llm:qwen3:8b heuristic
 
-Play against a thinking model with its reasoning switched off:
-    python run_games.py --p0 human --p1 ollama_native:qwen3.5:9b --no-think
+Players are listed without seat numbers; seats follow the rules (two players
+sit in seats 0 and 2). A player is llm:MODEL (Ollama on this machine),
+llm://HOST[:PORT]/MODEL (Ollama on another machine, started there with
+OLLAMA_HOST=0.0.0.0), random, heuristic, first, gt[:DEPTH], human or dummy.
 
-Local model against a model on another laptop's Ollama (that machine must run
-Ollama with OLLAMA_HOST=0.0.0.0), with JSON replies and last-move context:
-    python run_games.py --p0 ollama_native:qwen3.5:9b \
-        --p1 ollama_native://<host>:11434/qwen2.5vl:3b --structured --last-move
+Switches, each off by default:
+    --hide-legal-moves    leave the legal-move list out of the prompt
+    --shuffle             show the legal moves in a random order (own stream)
+    --outcomes            say after the list what each legal move does
+    --history N           show the last N moves
+    --think               let a thinking model think (off where it can be)
+    --effort high         send a thinking effort level (models that take levels)
+    --original-rules      the released LudoBench rules, prompt and reply format
 
-Offline smoke test (no API, no Ollama):
-    python run_games.py --p0 dummy --p1 dummy --games 2
-
-Withhold legal moves from the prompt (spot-mode behaviour):
-    python run_games.py --p0 ollama:llama3.2 --p1 heuristic --no-legal-moves
-
-Let a reasoning model actually reason (removes the 60-token cap and newline stop):
-    python run_games.py --p0 ollama:deepseek-r1 --p1 heuristic --uncapped
-
-Same, but with a longer token limit instead of none:
-    python run_games.py --p0 ollama:deepseek-r1 --p1 heuristic --max-tokens 1024
-
-Each run writes to its own folder (--out, default llm_game_results/<run_id>/):
-    decisions.jsonl   one line per dice roll, written as the game is played
-    games.jsonl       one line per game
-    run.json          configuration, versions, and definitions of the fields
-An existing folder is never reused, so a run cannot overwrite earlier results.
-See decision_log.py for the record layout.
+Results go to results/<experiment>/<model>/ (run.json, games.jsonl,
+decisions.jsonl; see decision_log.py), and results/cells.csv lists one row per
+run. Without --experiment and --games a run plays one game into
+results/sandbox/, so trial games never land in a real experiment. Play against
+a model, or watch a game:
+    python run_games.py --players human llm:qwen3:8b
+    python run_games.py --players llm:qwen3:8b heuristic --watch
 """
 
 import argparse
+import csv
 import os
 import sys
 import time
@@ -47,11 +41,13 @@ from ludo_env import LudoEnv, STREAMS
 from agents import BaseAgent, RandomAgent, HeuristicAgent
 from llm_agent import LLMAgent
 from evaluation import evaluate
-from llm_backends import (make_llm, parse_spec, check_ollama, reason_first,
-                          DEFAULT_SYSTEM_PROMPT, DEFAULT_TIMEOUT,
-                          SCHEMA_ORDERS, DEFAULT_SCHEMA_ORDER, REASON_MAX_CHARS)
+from llm_backends import (make_llm, parse_spec, check_ollama, model_info, reason_first,
+                          thinking_setting, DEFAULT_SYSTEM_PROMPT, DEFAULT_TIMEOUT,
+                          DEFAULT_SCHEMA_ORDER, REASON_MAX_CHARS, ANSWER_CEILING,
+                          THINKING_CEILING)
 from board_render import render_board, describe_move, group_moves
-from decision_log import RunLog, GameLog, CONTEXT_MODE, short_hash, move_effects
+from decision_log import (RunLog, GameLog, CONTEXT_MODE, git_state, short_hash,
+                          move_effects)
 
 class FirstLegalAgent(BaseAgent):
     """Always moves the first piece of the legal-move list (the lowest index)."""
@@ -428,12 +424,39 @@ def last_move_text(env, mv, viewer, prefix="Previous move: "):
     return line + "."
 
 
-def build_agent(spec, include_legal_moves, uncapped, labels=None, no_think=False,
-                max_tokens=None, structured=False, last_move=False,
-                schema_order=DEFAULT_SCHEMA_ORDER, reason_max_chars=None,
-                move_outcomes=False, legal_order="ascending"):
+# The reply setup of the released code (the paper): a 60-token ceiling, a
+# newline stop and "<int> | <reason>". --original-rules uses it; the tests
+# override it to replay earlier runs.
+RELEASED = {"uncapped": False, "max_tokens": None, "no_think": False,
+            "structured": False, "schema_order": None, "reason_max_chars": None}
+
+
+def llm_setup(player, original_rules, think, effort, released):
+    """make_llm arguments for an LLM player, and what run.json records about it."""
+    provider, model, host = player["provider"], player["model"], player["host"]
+    info = model_info(host.removesuffix("/v1"), model) if "ollama" in provider else {}
+    record = {k: info.get(k) for k in ("digest", "quantization", "parameter_size")}
+    if original_rules:
+        kw = {}
+        if released["uncapped"]:
+            kw.update(max_tokens=released["max_tokens"], stop=None)
+        if released["no_think"]:
+            kw.update(think=False)
+        if released["structured"]:
+            kw.update(structured=True, schema_order=released["schema_order"],
+                      reason_max_chars=released["reason_max_chars"])
+        return kw, record
+    think_value, thinks = thinking_setting(model, info, think, effort)
+    ceiling = THINKING_CEILING if thinks else ANSWER_CEILING
+    record.update(think=think_value, thinks=thinks, ceiling=ceiling)
+    return dict(max_tokens=ceiling, stop=None, think=think_value, structured=True,
+                schema_order=DEFAULT_SCHEMA_ORDER, reason_max_chars=REASON_MAX_CHARS), record
+
+
+def build_agent(spec, llm_kwargs, labels, include_legal_moves, robust, history,
+                move_outcomes, legal_order):
     """spec is 'human', 'random', 'heuristic', 'first', 'gt[:depth]', 'dummy',
-    or 'provider:model'."""
+    or an LLM (llm_kwargs are its make_llm arguments)."""
     if spec == "human":
         return HumanAgent(labels), "human"
 
@@ -445,25 +468,14 @@ def build_agent(spec, include_legal_moves, uncapped, labels=None, no_think=False
         depth = int(spec.split(":", 1)[1]) if ":" in spec else 2
         return GameTheoryMultiplayerAgent(search_depth=depth), f"gt(d={depth})"
 
-    kwargs = {}
-    robust = False
-    if uncapped:
-        # No newline stop, and no token limit unless --max-tokens was given, so
-        # the model can reason first. robust_parse then reads the answer off the
-        # end. The request timeout still bounds a runaway reply.
-        kwargs.update(max_tokens=max_tokens, stop=None)
-        robust = True
-    if no_think:
-        kwargs.update(think=False)
-    if structured:
-        kwargs.update(structured=True, schema_order=schema_order,
-                      reason_max_chars=reason_max_chars)
-    fn = make_llm(spec, **kwargs)
-    return TrackedLLMAgent(fn, include_legal_moves_in_prompt=include_legal_moves,
-                           robust_parse=robust, structured=structured,
-                           last_move=last_move, move_outcomes=move_outcomes,
-                           legal_order=legal_order, schema_order=schema_order,
-                           reason_max_chars=reason_max_chars), spec
+    return TrackedLLMAgent(make_llm(spec, **llm_kwargs),
+                           include_legal_moves_in_prompt=include_legal_moves,
+                           robust_parse=robust,
+                           structured=llm_kwargs.get("structured", False),
+                           schema_order=llm_kwargs.get("schema_order") or DEFAULT_SCHEMA_ORDER,
+                           reason_max_chars=llm_kwargs.get("reason_max_chars"),
+                           last_move=history, move_outcomes=move_outcomes,
+                           legal_order=legal_order), spec
 
 
 def player_info(specs, seats):
@@ -478,19 +490,76 @@ def player_info(specs, seats):
     return players
 
 
-def run_games(specs, games, seed0, include_legal_moves, uncapped, out_dir, run_id,
-              max_steps=1000, watch=False, delay=0.0, no_think=False,
-              max_tokens=None, structured=False, last_move=False,
-              ollama_versions=None, schema_order=DEFAULT_SCHEMA_ORDER,
-              reason_max_chars=None, move_outcomes=False, legal_order="ascending",
-              original_rules=False):
+def folder_name(spec):
+    """A player's name in results/: the model of an LLM, else the spec."""
+    name = parse_spec(spec)[1] if is_llm_spec(spec) else spec
+    return name.replace(":", "-").replace("/", "-")
+
+
+RESULTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
+CELL_FIELDS = ["experiment", "model", "opponent", "settings", "games_finished", "wins",
+               "win_rate", "invalid_rate", "ollama_version", "commit"]
+
+
+def cell_results(records, pid, ollama_versions):
+    """
+    The results columns of a run's row in cells.csv for player pid (the run's
+    model): wins, win rate and invalid-reply rate over its finished games, and
+    the Ollama versions that served it. Empty where they do not apply.
+    """
+    n = len(records)
+    wins = sum(r["winner"] == pid for r in records)
+    llm = [r["per_player"][str(pid)]["llm"] for r in records]
+    calls = sum(x["calls"] for x in llm if x)
+    return {"games_finished": n, "wins": wins,
+            "win_rate": f"{wins / n:.3f}" if n else "",
+            "invalid_rate": f"{sum(x['invalid'] for x in llm if x) / calls:.4f}" if calls else "",
+            "ollama_version": " ".join(sorted(set(ollama_versions.values())))}
+
+
+def update_cells(path, row):
+    """Write `row` into the run table at `path`, replacing that run's earlier row."""
+    rows = []
+    if os.path.exists(path):
+        with open(path, newline="", encoding="utf-8") as f:
+            rows = [r for r in csv.DictReader(f)
+                    if (r["experiment"], r["model"]) != (row["experiment"], row["model"])]
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=CELL_FIELDS)
+        writer.writeheader()
+        writer.writerows(rows + [row])
+
+
+def run_games(specs, games, seed0, out_dir, include_legal_moves=True, legal_order="ascending",
+              move_outcomes=False, history=0, think=False, effort=None, original_rules=False,
+              released=None, max_steps=1000, watch=False, delay=0.0, ollama_versions=None,
+              cell=None):
+    """
+    Play one run into out_dir. With original_rules the reply setup is RELEASED,
+    updated by `released`. `cell` (experiment, model, opponent, settings) adds
+    the run's row to results/cells.csv after every game.
+    """
+    released = {**RELEASED, **(released or {})}
     seats = rules.seats(len(specs), original_rules)
     players = player_info(specs, seats)
-    # The field order only exists when structured output is on.
-    schema_order = schema_order if structured else None
-    # Kept in run.json so a results folder is self-describing. The capped values
-    # are make_llm's defaults, which reproduce the released code. max_tokens is
-    # null when uncapped without --max-tokens.
+    llm_kwargs = {}
+    for pid, player in players.items():
+        if player["provider"]:
+            llm_kwargs[pid], record = llm_setup(player, original_rules, think, effort, released)
+            player.update(record)
+        elif player["model_spec"] == "dummy":
+            llm_kwargs[pid] = {"structured": released["structured"] or not original_rules}
+    if original_rules:
+        reply = dict(released, max_tokens=released["max_tokens"] if released["uncapped"] else 60,
+                     stop=None if released["uncapped"] else ["\n"])
+        if not reply["structured"]:
+            reply["schema_order"] = None
+    else:
+        reply = {"uncapped": True, "max_tokens": None, "stop": None, "no_think": not think,
+                 "structured": True, "schema_order": DEFAULT_SCHEMA_ORDER,
+                 "reason_max_chars": REASON_MAX_CHARS}
+    # Kept in run.json so a results folder is self-describing. Each LLM player's
+    # model version, thinking setting and output ceiling are under "players".
     settings = {
         "original_rules": original_rules,
         "seats": seats,
@@ -504,21 +573,25 @@ def run_games(specs, games, seed0, include_legal_moves, uncapped, out_dir, run_i
         "specs": list(specs),
         "games": games,
         "seed0": seed0,
-        "structured_output": structured,
-        "schema_order": schema_order,
-        "reason_max_chars": reason_max_chars,
-        "last_move_context": bool(last_move),
-        "last_moves": int(last_move),
+        "structured_output": reply["structured"],
+        "schema_order": reply["schema_order"],
+        "reason_max_chars": reply["reason_max_chars"],
+        "last_move_context": bool(history),
+        "last_moves": history,
         "move_outcomes": move_outcomes,
         "legal_order": legal_order,
         # Resolved server per LLM player, e.g. a partner's laptop on the LAN.
         "llm_endpoints": {str(pid): p["host"] for pid, p in players.items()
                           if p["host"]},
         "include_legal_moves": include_legal_moves,
-        "uncapped": uncapped,
-        "max_tokens": max_tokens if uncapped else 60,
-        "stop": None if uncapped else ["\n"],
-        "no_think": no_think,
+        "uncapped": reply["uncapped"],
+        "max_tokens": reply["max_tokens"],
+        "stop": reply["stop"],
+        "no_think": reply["no_think"],
+        "think": think,
+        "effort": effort,
+        "ceilings": None if original_rules else {"answer": ANSWER_CEILING,
+                                                 "thinking": THINKING_CEILING},
         "max_steps": max_steps,
         "temperature": 0,
         "system_prompt": DEFAULT_SYSTEM_PROMPT,
@@ -527,18 +600,20 @@ def run_games(specs, games, seed0, include_legal_moves, uncapped, out_dir, run_i
     # Copied onto every decision record. num_ctx is filled in per player.
     config = {
         "original_rules": original_rules,
-        "no_think": no_think,
-        "uncapped": uncapped,
-        "max_tokens": settings["max_tokens"],
-        "stop": settings["stop"],
-        "structured": structured,
-        "schema_order": schema_order,
-        "reason_max_chars": reason_max_chars,
+        "no_think": reply["no_think"],
+        "uncapped": reply["uncapped"],
+        "max_tokens": reply["max_tokens"],
+        "stop": reply["stop"],
+        "structured": reply["structured"],
+        "schema_order": reply["schema_order"],
+        "reason_max_chars": reply["reason_max_chars"],
         "legal_moves_shown": include_legal_moves,
-        "last_move_context": bool(last_move),
-        "last_moves": int(last_move),
+        "last_move_context": bool(history),
+        "last_moves": history,
         "move_outcomes": move_outcomes,
         "legal_order": legal_order,
+        "think": think,
+        "effort": effort,
         "temperature": settings["temperature"],
         "system_prompt_hash": short_hash(DEFAULT_SYSTEM_PROMPT),
         "num_ctx": None,
@@ -551,27 +626,23 @@ def run_games(specs, games, seed0, include_legal_moves, uncapped, out_dir, run_i
         seed = seed0 + g
         env = LudoEnv(seed=seed, num_players=len(specs), original_rules=original_rules)
         if run is None:                             # needs an env for its constants
-            run = RunLog(out_dir, run_id, players, settings, config,
-                         ollama_versions or {}, env)
+            run = RunLog(out_dir, os.path.basename(os.path.normpath(out_dir)), players,
+                         settings, config, ollama_versions or {}, env)
 
         labels = {pid: spec for pid, spec in zip(env.player_ids, specs)}
         human_playing = "human" in specs
         agents = {}
         for pid, spec in zip(env.player_ids, specs):
-            agent, label = build_agent(spec, include_legal_moves, uncapped, labels,
-                                       no_think=no_think, max_tokens=max_tokens,
-                                       structured=structured, last_move=last_move,
-                                       schema_order=schema_order or DEFAULT_SCHEMA_ORDER,
-                                       reason_max_chars=reason_max_chars,
-                                       move_outcomes=move_outcomes,
-                                       legal_order=legal_order)
+            agent, label = build_agent(spec, llm_kwargs.get(pid, {}), labels,
+                                       include_legal_moves, released["uncapped"] and original_rules,
+                                       history, move_outcomes, legal_order)
             if watch and spec != "human":
                 agent = WatchAgent(agent, label)
             agents[pid] = agent
             labels[pid] = label
 
-        if last_move:
-            attach_last_move(env, keep=int(last_move))
+        if history:
+            attach_last_move(env, keep=history)
 
         if watch or human_playing:
             print(f"\n{'=' * 58}\n  GAME {g + 1}/{games}  (seed {seed})\n{'=' * 58}")
@@ -597,12 +668,20 @@ def run_games(specs, games, seed0, include_legal_moves, uncapped, out_dir, run_i
         rec["first_player"] = env.first_player
         rec["roll_off"] = env.roll_off
         run.write_game(rec)
-        records.append(rec)
         if failure is not None:
             # The plies and the partial game are on disk. A failure such as an
             # unreachable server would hit every later game too, so stop here.
             run.close()
             raise failure
+        records.append(rec)
+        if cell:
+            git = run.meta["git"]
+            pid = min((p for p, v in players.items()
+                       if folder_name(v["model_spec"]) == cell["model"]),
+                      key=lambda p: players[p]["seat_position"])
+            update_cells(os.path.join(os.path.dirname(os.path.dirname(out_dir)), "cells.csv"),
+                         dict(cell, **cell_results(records, pid, run.meta["ollama_versions"]),
+                              commit=(git["commit"] or "")[:12] + ("-dirty" if git["dirty"] else "")))
 
         fb, calls = rec["llm_fallbacks"], rec["llm_calls"]
         rate = f"{fb}/{calls}" if calls else "n/a"
@@ -668,190 +747,102 @@ def summarise(records, specs):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Full Ludo games: LLMs, baselines, or you.")
-    ap.add_argument("--p0", default="dummy",
-                    help="agent for the first seat (player 0): human | random | heuristic "
-                         "| first | gt[:depth] "
-                         "| dummy | provider:model")
-    ap.add_argument("--p1", default="heuristic",
-                    help="agent for the second seat: player 2 in a two-player game "
-                         "(player 1 with --original-rules), otherwise player 1")
-    ap.add_argument("--p2", default=None, help="agent for the third seat, player 2 (optional)")
-    ap.add_argument("--p3", default=None, help="agent for the fourth seat, player 3 (optional)")
+    ap = argparse.ArgumentParser(
+        description="Full Ludo games: LLMs, bots, or you. With no switches a run "
+                    "uses the standard setup (see the top of this file).")
+    ap.add_argument("--players", nargs="+", required=True, metavar="PLAYER",
+                    help="2-4 players in seat order: llm:MODEL, llm://HOST[:PORT]/MODEL, "
+                         "random, heuristic, first, gt[:DEPTH], human, dummy")
     ap.add_argument("--games", type=int, default=1)
     ap.add_argument("--seed0", type=int, default=0, help="first seed; games use seed0..seed0+n-1")
     ap.add_argument("--max-steps", type=int, default=1000)
-    ap.add_argument("--no-legal-moves", action="store_true",
-                    help="withhold the legal-move list from the prompt (spot-mode behaviour)")
-    ap.add_argument("--uncapped", action="store_true",
-                    help="remove max_tokens=60 and the newline stop, with no token "
-                         "limit at all (still bounded by the request timeout); "
-                         "use --max-tokens N instead to keep a limit")
-    ap.add_argument("--no-think", action="store_true",
-                    help="disable a thinking model's reasoning phase; only works with "
-                         "ollama_native:<model> (Ollama's /v1 endpoint ignores it)")
-    ap.add_argument("--max-tokens", type=int, default=None,
-                    help="replace the paper's 60-token limit with N and drop the "
-                         "newline stop (default: 60 tokens + newline stop, as in "
-                         "the paper)")
-    ap.add_argument("--out", default=None,
-                    help="folder for this run's logs (must not already exist); "
-                         "default is llm_game_results/<timestamp>_<players>/")
+    ap.add_argument("--experiment", default="sandbox",
+                    help="results go to results/<experiment>/<model>/ (default: sandbox, "
+                         "for trial games)")
+    ap.add_argument("--hide-legal-moves", action="store_true",
+                    help="leave the legal-move list out of the prompt")
+    ap.add_argument("--shuffle", action="store_true",
+                    help="show the legal moves in a random order (the game's legal_order stream)")
+    ap.add_argument("--outcomes", action="store_true",
+                    help="after the legal-move list, say what each legal move does")
+    ap.add_argument("--history", type=int, default=0, metavar="N",
+                    help="show the last N moves in the prompt")
+    ap.add_argument("--think", action="store_true",
+                    help="let a thinking model think (by default thinking is off for "
+                         "models that can switch it off)")
+    ap.add_argument("--effort", choices=["low", "medium", "high"],
+                    help="thinking effort level, for models whose backend takes levels")
+    ap.add_argument("--original-rules", action="store_true",
+                    help="the released LudoBench rules, prompt and reply format (60 tokens, "
+                         "'<int> | <reason>'), to reproduce the original paper")
     ap.add_argument("--watch", action="store_true",
                     help="draw the board after every move (spectator mode)")
     ap.add_argument("--delay", type=float, default=0.0,
                     help="seconds to pause after each move when watching")
-    ap.add_argument("--structured", action="store_true",
-                    help="with --original-rules: constrain replies to JSON {reason, "
-                         "piece} via Ollama's 'format' parameter (always on otherwise); "
-                         "every LLM player must be ollama_native")
-    ap.add_argument("--schema-order", default=None,
-                    choices=[o.replace("_", "-") for o in SCHEMA_ORDERS],
-                    help="with --structured: which JSON field the model writes first "
-                         "(default reason-first; piece-first makes it answer before "
-                         "it has reasoned)")
-    ap.add_argument("--reason-max-chars", type=int, default=None, metavar="N",
-                    help="limit the reason to N characters inside the JSON schema, so "
-                         "a long-winded model must stop and name its piece instead of "
-                         "running into the token limit (default: %d; no limit with "
-                         "--original-rules)" % REASON_MAX_CHARS)
-    ap.add_argument("--last-move", action="store_true",
-                    help="add the previous move to the prompt's HISTORY / CONTEXT block")
-    ap.add_argument("--last-moves", type=int, default=None, metavar="N",
-                    help="add the last N moves (both players') to that block "
-                         "instead; --last-moves 1 is the same as --last-move")
-    ap.add_argument("--move-outcomes", action="store_true",
-                    help="after the legal-move list, add one line per legal move "
-                         "saying where the token lands and whether it captures, "
-                         "reaches a safe square, leaves base or enters the home path")
-    ap.add_argument("--legal-order", default="ascending", choices=LEGAL_ORDERS,
-                    help="order of the legal-move list in the prompt (default "
-                         "ascending, as in the released code; shuffled draws a new "
-                         "order for each prompt from the game's legal_order stream)")
-    ap.add_argument("--original-rules", action="store_true",
-                    help="play by the released LudoBench rules, to reproduce the "
-                         "original paper and its logged games")
     args = ap.parse_args()
-    if args.move_outcomes and args.no_legal_moves:
-        ap.error("--move-outcomes needs the legal-move list in the prompt")
-    if args.last_moves is not None:
-        if args.last_moves < 1:
-            ap.error("--last-moves must be a positive number")
-        if args.last_move and args.last_moves != 1:
-            ap.error("give --last-move or --last-moves N, not both")
-    last_moves = args.last_moves or int(args.last_move)
-    if args.max_tokens is not None:
-        # A custom token limit always drops the newline stop too: keeping the
-        # stop would give a setup that is neither paper nor uncapped.
-        args.uncapped = True
+
+    specs = args.players
+    if len(specs) not in (2, 3, 4):
+        ap.error("need 2-4 players")
+    if args.outcomes and args.hide_legal_moves:
+        ap.error("--outcomes needs the legal-move list in the prompt")
+    if args.history < 0:
+        ap.error("--history must be 0 or more")
+    if args.original_rules and (args.think or args.effort):
+        ap.error("--think and --effort do not apply with --original-rules")
 
     # Windows writes redirected or piped stdout as cp1252, and printing a model
     # reply containing e.g. U+2011 or an arrow then crashes the run.
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
-    specs = [s for s in (args.p0, args.p1, args.p2, args.p3) if s]
-    if len(specs) not in (2, 3, 4):
-        raise SystemExit("need 2-4 players")
-
     seat_specs = dict(zip(rules.seats(len(specs), args.original_rules), specs))
-    llm_players = [(pid, s) for pid, s in seat_specs.items() if is_llm_spec(s)]
     try:
-        resolved = {pid: parse_spec(s) for pid, s in llm_players}
+        resolved = {pid: parse_spec(s) for pid, s in seat_specs.items() if is_llm_spec(s)}
     except ValueError as e:
         ap.error(str(e))
-
-    # Our rules always ask for the JSON reply; the released one asked for "<int> | <reason>".
-    structured = args.structured or not args.original_rules
-    if args.schema_order and not structured:
-        ap.error("--schema-order requires --structured")
-    schema_order = (args.schema_order or DEFAULT_SCHEMA_ORDER).replace("-", "_")
-    reason_max_chars = args.reason_max_chars
-    if reason_max_chars is not None:
-        if not structured:
-            ap.error("--reason-max-chars requires --structured")
-        if reason_max_chars < 1:
-            ap.error("--reason-max-chars must be a positive number")
-    elif not args.original_rules:
-        reason_max_chars = REASON_MAX_CHARS
-
-    if structured:
-        other = [s for pid, s in seat_specs.items()
-                 if pid in resolved and resolved[pid][0] != "ollama_native"]
-        if other:
-            ap.error(f"JSON replies need every LLM player to be ollama_native "
-                     f"(or use --original-rules); not: {', '.join(other)}")
+    other = [seat_specs[pid] for pid, r in resolved.items() if r[0] != "ollama_native"]
+    if other:
+        ap.error(f"LLM players must be served by Ollama (llm:MODEL); not: {', '.join(other)}")
 
     # Check every Ollama server answers before any game starts, so a partner's
     # laptop that is off or firewalled fails now with its host and port named.
     ollama_versions = {}
     for pid, (provider, model, base_url) in resolved.items():
-        where = base_url
-        if provider in ("ollama", "ollama_native"):
-            try:
-                ollama_versions[base_url] = check_ollama(base_url)
-                where += f"  (Ollama {ollama_versions[base_url]})"
-            except RuntimeError as e:
-                raise SystemExit(f"P{pid} {seat_specs[pid]}: {e}")
-        print(f"P{pid} {model} -> {where}")
+        try:
+            ollama_versions[base_url] = check_ollama(base_url)
+        except RuntimeError as e:
+            raise SystemExit(f"P{pid} {seat_specs[pid]}: {e}")
+        print(f"P{pid} {model} -> {base_url}  (Ollama {ollama_versions[base_url]})")
 
-    if args.no_think:
-        ignored = [s for s in specs if s.startswith(("ollama:", "openrouter:"))]
-        if ignored:
-            print(f"WARNING: --no-think has no effect on {', '.join(ignored)}; "
-                  f"use ollama_native:<model> to switch thinking off.")
-
-    out = args.out
-    if out is None:
-        tag = "_vs_".join(s.replace("/", "-").replace(":", "-") for s in specs)
-        out = os.path.join("llm_game_results",
-                           f"{time.strftime('%Y%m%d-%H%M%S')}_{tag}")
-    elif os.path.exists(out):
-        raise SystemExit(f"{out} already exists; pick another --out "
-                         f"(refusing to overwrite earlier results)")
-    run_id = os.path.basename(os.path.normpath(out))
-
+    llm = [s for s in specs if is_llm_spec(s)]
+    model = folder_name((llm or specs)[0])
+    opponent = "+".join(folder_name(s) for s in specs if s != (llm or specs)[0])
+    switches = [name for name, on in (("hide-legal-moves", args.hide_legal_moves),
+                                      ("shuffle", args.shuffle), ("outcomes", args.outcomes),
+                                      (f"history {args.history}", args.history),
+                                      ("think", args.think), (f"effort {args.effort}", args.effort),
+                                      ("original-rules", args.original_rules)) if on]
+    out = os.path.join(RESULTS, args.experiment, model)
+    if git_state()["dirty"]:
+        print("WARNING: tracked files have uncommitted changes (recorded in run.json)")
     print(f"\nRunning {args.games} game(s): " + "  vs  ".join(specs))
-    if not args.uncapped:
-        cap = "60 tokens + newline stop (paper)"
-    elif args.max_tokens is None:
-        cap = "none"
-    else:
-        cap = f"{args.max_tokens} tokens, no newline stop"
-    print(f"legal moves in prompt: {not args.no_legal_moves}   output cap: {cap}")
-    shown = "False"
-    if structured:
-        limit = f", reason <= {reason_max_chars} chars" if reason_max_chars else ""
-        shown = f"True ({schema_order}{limit})"
-    print(f"structured output: {shown}   last-move context: {last_moves or False}")
-    if args.move_outcomes or args.legal_order != "ascending":
-        print(f"move outcomes in prompt: {args.move_outcomes}   "
-              f"legal-move order: {args.legal_order}")
-    print("rules: " + ("original (released LudoBench)" if args.original_rules else "ours"))
+    print(f"settings: {', '.join(switches) or 'standard'}")
     print(f"writing to {out}\n")
 
-    records = run_games(
-        specs,
-        games=args.games,
-        seed0=args.seed0,
-        include_legal_moves=not args.no_legal_moves,
-        uncapped=args.uncapped,
-        out_dir=out,
-        run_id=run_id,
-        ollama_versions=ollama_versions,
-        max_steps=args.max_steps,
-        watch=args.watch,
-        delay=args.delay,
-        no_think=args.no_think,
-        max_tokens=args.max_tokens,
-        structured=structured,
-        schema_order=schema_order,
-        reason_max_chars=reason_max_chars,
-        last_move=last_moves,
-        move_outcomes=args.move_outcomes,
-        legal_order=args.legal_order,
-        original_rules=args.original_rules,
-    )
+    try:
+        records = run_games(
+            specs, games=args.games, seed0=args.seed0, out_dir=out,
+            include_legal_moves=not args.hide_legal_moves,
+            legal_order="shuffled" if args.shuffle else "ascending",
+            move_outcomes=args.outcomes, history=args.history, think=args.think,
+            effort=args.effort, original_rules=args.original_rules,
+            max_steps=args.max_steps, watch=args.watch, delay=args.delay,
+            ollama_versions=ollama_versions,
+            cell={"experiment": args.experiment, "model": model, "opponent": opponent,
+                  "settings": " ".join(f"--{x}" for x in switches) or "standard"})
+    except ValueError as e:                          # e.g. a thinking switch the model cannot take
+        raise SystemExit(str(e))
     summarise(records, specs)
     print(f"\nLogs: {out}  (decisions.jsonl, games.jsonl, run.json)")
 

@@ -94,12 +94,13 @@ def test_original_rules_read_the_bar_reply():
 
 
 def run_cli(tmp_path, monkeypatch, *args):
-    out = tmp_path / "run"
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(sys, "argv", ["run_games.py", "--p0", "dummy", "--p1", "heuristic",
-                                      "--out", str(out), *args])
+    monkeypatch.setattr(run_games, "RESULTS", str(tmp_path / "results"))
+    monkeypatch.setattr(sys, "argv", ["run_games.py", "--players", "dummy", "heuristic",
+                                      *args])
     run_games.main()
-    return json.loads((out / "run.json").read_text(encoding="utf-8"))["settings"]
+    run = tmp_path / "results" / "sandbox" / "dummy" / "run.json"
+    return json.loads(run.read_text(encoding="utf-8"))["settings"]
 
 
 def test_runs_use_the_json_reply_by_default(tmp_path, monkeypatch):

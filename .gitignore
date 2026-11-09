@@ -11,6 +11,7 @@ spot_run.txt
 .venv/
 .env
 llm_game_results/
+results/
 
 spots_temporary/
 spot_results/

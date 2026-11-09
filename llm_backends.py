@@ -6,13 +6,15 @@ are always the same model. This module builds a fresh call-function per model
 so different models can play each other.
 
 A backend is specified as "<provider>:<model>":
+    llm:qwen3:8b                      (Ollama's native API; same as ollama_native)
     ollama:llama3.2
     ollama:qwen2.5:7b                 (model names may contain colons)
     ollama_native:qwen3.5:9b          (native /api/chat; needed for think=False)
     openrouter:qwen/qwen-2.5-7b-instruct
     dummy                             (offline stub, no API)
 
-ollama_native can also name another machine's Ollama server:
+llm / ollama_native can also name another machine's Ollama server:
+    llm://<host>:11434/qwen2.5vl:3b
     ollama_native://<host>:11434/qwen2.5vl:3b
     ollama_native://<host>/qwen2.5vl:3b        (port defaults to 11434)
 
@@ -104,6 +106,8 @@ def parse_spec(spec):
             f"backend spec must be 'provider:model' or 'dummy', got {spec!r}")
 
     provider, rest = spec.split(":", 1)       # split once: model may contain ':'
+    if provider == "llm":
+        provider = "ollama_native"
     if provider not in PROVIDER_DEFAULTS:
         raise ValueError(f"unknown provider {provider!r}; "
                          f"expected one of {sorted(PROVIDER_DEFAULTS)} or 'dummy'")

@@ -191,10 +191,10 @@ def test_shuffled_legal_order_is_reproducible(tmp_path, monkeypatch):
         call.spec, call.base_url, call.last_content = spec, None, None
         return call
     monkeypatch.setattr(run_games, "make_llm", make_llm)
+    monkeypatch.setattr(run_games, "model_info", lambda *a: {"capabilities": []})
     for out in ("a", "b"):
-        run_games.run_games(["ollama:x", "heuristic"], games=1, seed0=3, include_legal_moves=True,
-                            uncapped=False, out_dir=str(tmp_path / out), run_id=out,
-                            legal_order="shuffled")
+        run_games.run_games(["llm:x", "heuristic"], games=1, seed0=3,
+                            out_dir=str(tmp_path / out), legal_order="shuffled")
     a, b = prompts[:len(prompts) // 2], prompts[len(prompts) // 2:]
     assert a == b
     lists = [json.loads(p.split(run_games.LEGAL_LIST_LEAD)[1].split("\n")[0]) for p in a]

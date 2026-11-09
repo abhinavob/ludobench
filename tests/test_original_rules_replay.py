@@ -109,18 +109,20 @@ def rerun(run, game_index, tmp_path, monkeypatch):
     monkeypatch.setattr(run_games, "make_llm",
                         replay_backend(r for r in logged if r["prompt_hash"]))
     monkeypatch.setattr(decision_log, "ollama_num_ctx", lambda *a, **k: None)
+    monkeypatch.setattr(run_games, "model_info", lambda *a, **k: {})
     out = tmp_path / f"g{game_index}"
     run_games.run_games(
-        s["specs"], games=1, seed0=seed, include_legal_moves=s["include_legal_moves"],
-        uncapped=s["uncapped"], out_dir=str(out), run_id="rerun",
-        max_steps=s["max_steps"], no_think=s["no_think"],
-        max_tokens=s["max_tokens"] if s["uncapped"] else None,
-        structured=s["structured_output"],
-        last_move=s.get("last_moves") or int(s.get("last_move_context", False)),
-        schema_order=s.get("schema_order") or DEFAULT_SCHEMA_ORDER,
-        reason_max_chars=s.get("reason_max_chars"),
+        s["specs"], games=1, seed0=seed, out_dir=str(out),
+        include_legal_moves=s["include_legal_moves"],
+        legal_order=s.get("legal_order") or "ascending",
         move_outcomes=s.get("move_outcomes", False),
-        legal_order=s.get("legal_order") or "ascending", original_rules=True)
+        history=s.get("last_moves") or int(s.get("last_move_context", False)),
+        original_rules=True, max_steps=s["max_steps"],
+        released={"uncapped": s["uncapped"], "no_think": s["no_think"],
+                  "max_tokens": s["max_tokens"] if s["uncapped"] else None,
+                  "structured": s["structured_output"],
+                  "schema_order": s.get("schema_order") or DEFAULT_SCHEMA_ORDER,
+                  "reason_max_chars": s.get("reason_max_chars")})
     replayed = [json.loads(line) for line in open(out / "decisions.jsonl", encoding="utf-8")]
     return logged, replayed
 
