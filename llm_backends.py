@@ -56,6 +56,7 @@ DEFAULT_TIMEOUT = 600      # seconds per request
 SCHEMA_ORDERS = {"reason_first": ("reason", "piece"),
                  "piece_first": ("piece", "reason")}
 DEFAULT_SCHEMA_ORDER = "reason_first"
+REASON_MAX_CHARS = 500     # reason limit of the JSON reply unless --original-rules
 
 
 def move_schema(order=DEFAULT_SCHEMA_ORDER, reason_max_chars=None):
@@ -142,9 +143,9 @@ def _timed_out(call):
     return ""
 
 
-def _parse_move_json(content):
+def parse_move_json(content):
     """
-    Read {"piece": int, "reason": str} from a structured reply.
+    Read {"reason": str, "piece": int} from a JSON reply.
     Returns (piece, reason), or None if the reply is not that shape.
     """
     try:
@@ -157,9 +158,9 @@ def _parse_move_json(content):
     if not isinstance(piece, int) or isinstance(piece, bool):
         return None
     reason = obj.get("reason")
-    # One line, so LLMAgent's "<int> | <reason>" parser reads it unambiguously.
-    reason = " ".join(reason.split()) if isinstance(reason, str) else ""
-    return piece, reason
+    if not isinstance(reason, str):
+        return None
+    return piece, " ".join(reason.split())             # one line
 
 
 def make_llm(spec,
@@ -195,23 +196,23 @@ def make_llm(spec,
     structured=True (ollama_native only) constrains the reply to move_schema()
     via Ollama's "format" parameter, with its two fields in schema_order
     ("reason_first" or "piece_first") and, if reason_max_chars is set, the reason
-    limited to that many characters. The JSON is parsed here and returned as one
-    canonical "<piece> | <reason>" line, or "" if it could not be parsed, so
-    LLMAgent's text parser never scrapes a number out of malformed JSON.
+    limited to that many characters. The reply is returned as received;
+    LLMAgent reads the JSON.
 
     After each call, the returned function carries:
       last_reasoning      the model's reasoning text, for display only
       last_finish_reason  why the reply ended: "stop", "length" (ran out of
                           tokens), "timeout", or None if the provider gave none
-      last_content        the raw reply text, before any structured parsing
-      last_structured_ok  structured mode: whether the JSON parsed
+      last_content        the raw reply text
       last_prompt_tokens / last_completion_tokens
                           token counts the server reported, or None
     and, fixed: spec, base_url.
     """
     if spec == "dummy":
         from dummy_llm import dummy_llm
-        return dummy_llm
+        if not structured:
+            return dummy_llm
+        return lambda prompt: json.dumps({"reason": "dummy", "piece": int(dummy_llm(prompt))})
 
     provider, model, base_url = parse_spec(spec)
 
@@ -342,7 +343,6 @@ def _make_ollama_native(spec, model, base_url, max_tokens, stop, temperature,
                                      headers={"Content-Type": "application/json"})
         call.last_finish_reason = None
         call.last_content = ""
-        call.last_structured_ok = False
         call.last_prompt_tokens = call.last_completion_tokens = None
         last_err = None
         for attempt in range(retries):
@@ -357,13 +357,7 @@ def _make_ollama_native(spec, model, base_url, max_tokens, stop, temperature,
                 call.last_reasoning = (msg.get("thinking") or "").strip()
                 content = (msg.get("content") or "").strip()
                 call.last_content = content
-                if not structured:
-                    return content
-                parsed = _parse_move_json(content)
-                if parsed is None:
-                    return ""                         # unparseable: invalid reply
-                call.last_structured_ok = True
-                return f"{parsed[0]} | {parsed[1]}"
+                return content
             except urllib.error.HTTPError as e:
                 # Ollama explains the failure in the body, e.g. "model not found".
                 detail = e.read().decode("utf-8", errors="replace").strip()
@@ -389,6 +383,5 @@ def _make_ollama_native(spec, model, base_url, max_tokens, stop, temperature,
     call.last_reasoning = ""
     call.last_finish_reason = None
     call.last_content = ""
-    call.last_structured_ok = False
     call.last_prompt_tokens = call.last_completion_tokens = None
     return call

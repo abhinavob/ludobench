@@ -1,15 +1,142 @@
 import re
+
+import ludo_rules as rules
 from agents import BaseAgent
+from llm_backends import (DEFAULT_SCHEMA_ORDER, REASON_MAX_CHARS, SCHEMA_ORDERS,
+                          parse_move_json)
+
+# The prompt's rule and reply-format blocks. ORIGINAL_TEXT is the released
+# prompt word for word (it asks for "<int> | <reason>"). OUR_TEXT describes our
+# rules; its JSON reply format is built per agent by json_reply_format.
+ORIGINAL_TEXT = {
+    "important": """\
+IMPORTANT:
+- You must output ONLY a token index (0, 1, 2, or 3) followed by " | " and a one‑line reason.
+- Do NOT output board positions or text without the token index.
+- The token index MUST refer to one of your own 4 tokens (0–3).
+- If you output anything else, it is invalid.
+- Token index mapping (for clarity): 0→token1, 1→token2, 2→token3, 3→token4.""",
+    "board": """\
+1. The main circular board has 52 squares, indexed 0–51.
+2. Each player has a fixed START square on the main board.
+3. Tokens move forward along the main board relative to their START.
+4. After completing one full lap (52 steps) from their START, tokens enter
+   that player's HOME PATH.
+5. Each player has a UNIQUE HOME PATH (private indices >= 52).
+6. The final home position is HOME_END for your player.
+7. Tokens in the home path must land EXACTLY on HOME_END to finish.
+8. Overshooting HOME_END is illegal.""",
+    "rules": """\
+1. All tokens start in base (-1).
+2. A token can leave base ONLY if the dice roll is exactly 6.
+3. When leaving base, the token is placed at that player's START square.
+4. Tokens move forward by the dice value.
+5. Same-player stacking is allowed on SAFE squares and in home path squares.
+   On NON-safe main-board squares, your own tokens cannot stack.
+6. CAPTURE rule (main board only): if you land on an opponent token on
+   a NON-safe square, that opponent token is captured and sent to base (-1).
+7. Captures NEVER happen on safe squares or in any home path.
+8. Safe squares are positions where tokens cannot be captured.
+9. Tokens on safe squares are fully protected.
+10. Rolling a 6 grants an extra turn.
+11. If no legal move exists, the turn is skipped.
+12. The first player to move ALL tokens to HOME_END wins.
+13. Home paths are private: ONLY your tokens can enter your home path.""",
+    "path_note": """\
+PATH NOTE:
+- Movement is RELATIVE to each player's START square.
+- After a full lap (52 steps) from your START, you enter YOUR home path.
+- Other players have DIFFERENT starts and DIFFERENT home path ranges.
+- Home path ranges are player-specific; only that player can be there.
+- Safe squares are SHARED board squares (0–51) for all players.""",
+    "output": """\
+- Return exactly one line in the format:
+  <int> | <one line reason>
+- The line MUST start with the integer
+- The integer MUST be a TOKEN INDEX for your own pieces.
+- In this game, each player has 4 tokens, so valid indices are: 0, 1, 2, 3.
+- If the game ever changes the number of tokens per player, use 0..(tokens_per_player-1).
+- The reason MUST be a single line (no newlines)
+- Do NOT return anything else""",
+}
+
+OUR_TEXT = {
+    "important": """\
+IMPORTANT:
+- Reply with ONE JSON object and nothing else (see OUTPUT FORMAT).
+- Its "piece" MUST be the token index of one of your own 4 tokens (0–3).
+- Do NOT give a board position instead of a token index.
+- If you reply with anything else, it is invalid.""",
+    "board": """\
+1. The main circular board has 52 squares, indexed 0–51. Tokens move towards
+   higher indices and wrap from 51 to 0.
+2. Each player has a fixed START square on the main board.
+3. Each pip of the dice moves a token one square forward along its route.
+4. From its START a token visits every main-board square once, ending on the
+   square just before its START (51 pips from START).
+5. The next pip takes it into that player's HOME PATH (6 squares, private
+   indices >= 52). A token never lands on or passes its own START again.
+6. The last home-path square is HOME_END, 57 pips from START.
+7. In the home path a token may move by any roll that does not pass HOME_END.
+8. A token finishes only by landing EXACTLY on HOME_END; a roll that would
+   pass HOME_END cannot be used by that token.""",
+    "rules": """\
+1. All tokens start in base (-1).
+2. A token can leave base ONLY if the dice roll is exactly 6.
+3. When leaving base, the token is placed on that player's START square; this
+   uses the whole roll.
+4. Tokens move forward by the dice value and pass over any tokens in the way
+   (no square is ever blocked).
+5. Your own tokens may share safe squares, home path squares and HOME_END.
+   On any other square you cannot land on your own token.
+6. CAPTURE rule (main board only): if you land on an opponent token on
+   a NON-safe square, that opponent token is captured and sent to base (-1).
+7. Captures NEVER happen on safe squares or in any home path. Tokens of
+   several players can share a safe square.
+8. Rolling a 6 grants an extra turn. Capturing or finishing a token does not.
+9. If no legal move exists, the turn is skipped (after a 6 you roll again).
+10. Players take turns in seat order; a roll-off chose who started.
+11. The first player to move ALL tokens to HOME_END wins.
+12. Home paths are private: ONLY your tokens can enter your home path.""",
+    "path_note": """\
+PATH NOTE:
+- Movement is RELATIVE to each player's START square.
+- From the square just before your START, the next pip enters YOUR home path.
+- Other players have DIFFERENT starts and DIFFERENT home path ranges.
+- Home path ranges are player-specific; only that player can be there.
+- Safe squares are SHARED board squares (0–51) for all players.""",
+}
+
+
+def json_reply_format(schema_order=DEFAULT_SCHEMA_ORDER, reason_max_chars=REASON_MAX_CHARS):
+    """OUTPUT FORMAT block for a JSON reply with its fields in schema order."""
+    reason = "why you chose this move"
+    if reason_max_chars:
+        reason += f", at most {reason_max_chars} characters"
+    fields = {"reason": f'"reason": "<{reason}>"', "piece": '"piece": <token index>'}
+    example = "{" + ", ".join(fields[f] for f in SCHEMA_ORDERS[schema_order]) + "}"
+    return ("- Reply with exactly one JSON object, with its fields in this order:\n"
+            f"  {example}\n"
+            '- "piece" MUST be a TOKEN INDEX of your own tokens: 0, 1, 2 or 3.\n'
+            "- Do NOT return anything else")
+
 
 class LLMAgent(BaseAgent):
     def __init__(self, llm_call_fn, include_legal_moves_in_prompt=True,
-                 robust_parse=False):
+                 robust_parse=False, schema_order=DEFAULT_SCHEMA_ORDER,
+                 reason_max_chars=REASON_MAX_CHARS, structured=False):
         self.llm_call = llm_call_fn
         self.include_legal_moves_in_prompt = include_legal_moves_in_prompt
         # robust_parse=False reproduces the released behaviour exactly (first line
         # only). Set True for reasoning models, whose answer comes AFTER a long
         # reasoning block, so the first line is never the answer.
         self.robust_parse = robust_parse
+        # Under our rules the prompt asks for a JSON reply in this field order.
+        self.schema_order = schema_order
+        self.reason_max_chars = reason_max_chars
+        # The reply is JSON: always under our rules; with original rules only
+        # when the backend constrains it (structured output).
+        self.structured = structured
 
     def select_move(self, env, player, dice, legal_moves):
 
@@ -24,13 +151,12 @@ class LLMAgent(BaseAgent):
         safe_squares = sorted(list(env.SAFE_SQUARES))
         legal_moves = legal_moves
         
-        home_start = env.HOME_START + player * env.HOME_LEN
-        home_end = home_start + env.HOME_LEN - 1
+        home_start, home_end = rules.home_range(player)
         player_info = {
             pid: {
                 "start": env.START_POSITIONS[pid],
-                "home_start": env.HOME_START + pid * env.HOME_LEN,
-                "home_end": (env.HOME_START + pid * env.HOME_LEN) + env.HOME_LEN - 1
+                "home_start": rules.home_range(pid)[0],
+                "home_end": rules.home_range(pid)[1]
             }
             for pid in env.player_ids
         }
@@ -65,15 +191,13 @@ You must play with this persona style:
 {env.persona_text}
 """
 
+        text = (ORIGINAL_TEXT if env.original_rules
+                else dict(OUR_TEXT, output=json_reply_format(self.schema_order,
+                                                             self.reason_max_chars)))
         prompt = f"""
 You are an AI agent playing Ludo as Player {player}. Your job is to choose exactly ONE of your token indices.
 
-IMPORTANT:
-- You must output ONLY a token index (0, 1, 2, or 3) followed by " | " and a one‑line reason.
-- Do NOT output board positions or text without the token index.
-- The token index MUST refer to one of your own 4 tokens (0–3).
-- If you output anything else, it is invalid.
-- Token index mapping (for clarity): 0→token1, 1→token2, 2→token3, 3→token4.
+{text['important']}
 
 All positions are given using an INTERNAL INDEXING SYSTEM described below.
 
@@ -81,15 +205,7 @@ All positions are given using an INTERNAL INDEXING SYSTEM described below.
 BOARD & POSITION SYSTEM
 ────────────────────
 
-1. The main circular board has 52 squares, indexed 0–51.
-2. Each player has a fixed START square on the main board.
-3. Tokens move forward along the main board relative to their START.
-4. After completing one full lap (52 steps) from their START, tokens enter
-   that player's HOME PATH.
-5. Each player has a UNIQUE HOME PATH (private indices >= 52).
-6. The final home position is HOME_END for your player.
-7. Tokens in the home path must land EXACTLY on HOME_END to finish.
-8. Overshooting HOME_END is illegal.
+{text['board']}
 
 ────────────────────
 TOKEN STATES
@@ -104,21 +220,7 @@ TOKEN STATES
 GAME RULES
 ────────────────────
 
-1. All tokens start in base (-1).
-2. A token can leave base ONLY if the dice roll is exactly 6.
-3. When leaving base, the token is placed at that player's START square.
-4. Tokens move forward by the dice value.
-5. Same-player stacking is allowed on SAFE squares and in home path squares.
-   On NON-safe main-board squares, your own tokens cannot stack.
-6. CAPTURE rule (main board only): if you land on an opponent token on
-   a NON-safe square, that opponent token is captured and sent to base (-1).
-7. Captures NEVER happen on safe squares or in any home path.
-8. Safe squares are positions where tokens cannot be captured.
-9. Tokens on safe squares are fully protected.
-10. Rolling a 6 grants an extra turn.
-11. If no legal move exists, the turn is skipped.
-12. The first player to move ALL tokens to HOME_END wins.
-13. Home paths are private: ONLY your tokens can enter your home path.
+{text['rules']}
 
 ────────────────────
 CURRENT GAME STATE
@@ -147,12 +249,7 @@ Safe squares:
 PLAYER PATH RANGES (START / HOME START / HOME END):
 {player_info}
 
-PATH NOTE:
-- Movement is RELATIVE to each player's START square.
-- After a full lap (52 steps) from your START, you enter YOUR home path.
-- Other players have DIFFERENT starts and DIFFERENT home path ranges.
-- Home path ranges are player-specific; only that player can be there.
-- Safe squares are SHARED board squares (0–51) for all players.
+{text['path_note']}
 
 {persona_block}
 
@@ -175,14 +272,7 @@ Choose the BEST legal move to help you win the game.
 OUTPUT FORMAT (STRICT)
 ────────────────────
 
-- Return exactly one line in the format:
-  <int> | <one line reason>
-- The line MUST start with the integer
-- The integer MUST be a TOKEN INDEX for your own pieces.
-- In this game, each player has 4 tokens, so valid indices are: 0, 1, 2, 3.
-- If the game ever changes the number of tokens per player, use 0..(tokens_per_player-1).
-- The reason MUST be a single line (no newlines)
-- Do NOT return anything else
+{text['output']}
 
 
 
@@ -230,23 +320,8 @@ OUTPUT FORMAT (STRICT)
         # TEMP: tolerate malformed LLM outputs so runs don't crash.
         # Remove this once LLM reliably returns "<int> | <reason>".
         try:
-            text = (response or "").strip()
-            if self.robust_parse:
-                answer, reason = self._parse_robust(text, legal_moves)
-                env.last_llm_reason = reason
-            else:
-                first_line = text.splitlines()[0] if text else ""
-                if "|" in first_line:
-                    left, _, reason = first_line.partition("|")
-                    answer = int(left.strip())
-                    env.last_llm_reason = reason.strip()
-                else:
-                    # Fallback: extract first integer from entire response
-                    m = re.search(r"-?\d+", text)
-                    if not m:
-                        raise ValueError("no integer in response")
-                    answer = int(m.group())
-                    env.last_llm_reason = ""
+            answer, env.last_llm_reason = self.parse_reply(
+                (response or "").strip(), legal_moves, env.original_rules)
         except Exception:
             env.llm_fallbacks += 1
             env.last_llm_fallback = True
@@ -257,6 +332,29 @@ OUTPUT FORMAT (STRICT)
         env.llm_fallbacks += 1
         env.last_llm_fallback = True
         return env.rng["fallback"].choice(legal_moves)
+
+    def parse_reply(self, text, legal_moves, original_rules):
+        """
+        (token index, reason) read from a reply; raises if there is none. A JSON
+        reply must be a {reason, piece} object; "<int> | <reason>" is read only
+        with original rules and no structured output.
+        """
+        if self.structured or not original_rules:
+            parsed = parse_move_json(text)
+            if parsed is None:
+                raise ValueError("not a {reason, piece} JSON object")
+            return parsed
+        if self.robust_parse:
+            return self._parse_robust(text, legal_moves)
+        first_line = text.splitlines()[0] if text else ""
+        if "|" in first_line:
+            left, _, reason = first_line.partition("|")
+            return int(left.strip()), reason.strip()
+        # Fallback: extract first integer from entire response
+        m = re.search(r"-?\d+", text)
+        if not m:
+            raise ValueError("no integer in response")
+        return int(m.group()), ""
 
     @staticmethod
     def _parse_robust(text, legal_moves):

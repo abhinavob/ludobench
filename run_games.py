@@ -39,7 +39,6 @@ See decision_log.py for the record layout.
 
 import argparse
 import os
-import re
 import sys
 import time
 
@@ -50,7 +49,7 @@ from llm_agent import LLMAgent
 from evaluation import evaluate
 from llm_backends import (make_llm, parse_spec, check_ollama,
                           DEFAULT_SYSTEM_PROMPT, DEFAULT_TIMEOUT,
-                          SCHEMA_ORDERS, DEFAULT_SCHEMA_ORDER)
+                          SCHEMA_ORDERS, DEFAULT_SCHEMA_ORDER, REASON_MAX_CHARS)
 from board_render import render_board, describe_move, group_moves
 from decision_log import RunLog, GameLog, CONTEXT_MODE, short_hash, move_effects
 
@@ -156,10 +155,9 @@ class TrackedLLMAgent(LLMAgent):
     last_decision holds that call's details for the decision log.
     """
 
-    def __init__(self, llm_call_fn, *args, structured=False, last_move=False,
+    def __init__(self, llm_call_fn, *args, last_move=False,
                  move_outcomes=False, legal_order="ascending", **kwargs):
         super().__init__(_TimedCall(llm_call_fn), *args, **kwargs)
-        self.structured = structured
         self.last_move = last_move
         self.move_outcomes = move_outcomes
         self.legal_order = legal_order
@@ -173,19 +171,14 @@ class TrackedLLMAgent(LLMAgent):
         self.completion_tokens = 0
         self.latency_ms = 0.0
 
-    def _parsed_index(self, text, legal_moves):
+    def _parsed_index(self, text, legal_moves, original_rules):
         """
         The index LLMAgent's parser read from the reply, legal or not; None if it
         read none. LLMAgent only hands back the final move, so the same parse is
         repeated here on the same text.
         """
         try:
-            if self.robust_parse:
-                return self._parse_robust(text, legal_moves)[0]
-            first_line = text.splitlines()[0] if text else ""
-            if "|" in first_line:
-                return int(first_line.partition("|")[0].strip())
-            return int(re.search(r"-?\d+", text).group())
+            return self.parse_reply(text, legal_moves, original_rules)[0]
         except Exception:
             return None
 
@@ -213,12 +206,12 @@ class TrackedLLMAgent(LLMAgent):
         call = self.llm_call
         why = getattr(call, "last_finish_reason", None)
         fallback = env.last_llm_fallback
-        # What the model sent. Structured mode gives LLMAgent a canonical line
-        # (or "" if the JSON was bad), so prefer the backend's untouched text.
+        # What the model sent: the backend's text, or LLMAgent's copy for the
+        # dummy backend.
         raw = getattr(call, "last_content", None)
         if raw is None:                            # dummy backend
             raw = env.last_llm_raw
-        parsed = self._parsed_index(env.last_llm_raw, legal_moves)
+        parsed = self._parsed_index(env.last_llm_raw, legal_moves, env.original_rules)
         cause = None
         if fallback:
             if why == "timeout":
@@ -288,8 +281,6 @@ class WatchAgent(BaseAgent):
             raw = getattr(env, "last_llm_raw", None)
             if getattr(env, "last_llm_fallback", False):
                 print("  !! INVALID reply, random legal move substituted")
-                # Structured mode hands LLMAgent "" for unparseable JSON; show
-                # what the model actually sent.
                 raw = raw or getattr(self.inner.llm_call, "last_content", "")
                 print(f"     model said: {_short(raw) if raw else '(empty content)'}")
                 why = getattr(self.inner.llm_call, "last_finish_reason", None)
@@ -467,7 +458,8 @@ def build_agent(spec, include_legal_moves, uncapped, labels=None, no_think=False
     return TrackedLLMAgent(fn, include_legal_moves_in_prompt=include_legal_moves,
                            robust_parse=robust, structured=structured,
                            last_move=last_move, move_outcomes=move_outcomes,
-                           legal_order=legal_order), spec
+                           legal_order=legal_order, schema_order=schema_order,
+                           reason_max_chars=reason_max_chars), spec
 
 
 def player_info(specs, seats):
@@ -706,18 +698,19 @@ def main():
     ap.add_argument("--delay", type=float, default=0.0,
                     help="seconds to pause after each move when watching")
     ap.add_argument("--structured", action="store_true",
-                    help="constrain replies to JSON {piece, reason} via Ollama's "
-                         "'format' parameter; every LLM player must be ollama_native")
+                    help="with --original-rules: constrain replies to JSON {reason, "
+                         "piece} via Ollama's 'format' parameter (always on otherwise); "
+                         "every LLM player must be ollama_native")
     ap.add_argument("--schema-order", default=None,
                     choices=[o.replace("_", "-") for o in SCHEMA_ORDERS],
                     help="with --structured: which JSON field the model writes first "
                          "(default reason-first; piece-first makes it answer before "
                          "it has reasoned)")
     ap.add_argument("--reason-max-chars", type=int, default=None, metavar="N",
-                    help="with --structured: limit the reason to N characters inside "
-                         "the schema, so a long-winded model must stop and name its "
-                         "piece instead of running into the token limit (default: "
-                         "no limit)")
+                    help="limit the reason to N characters inside the JSON schema, so "
+                         "a long-winded model must stop and name its piece instead of "
+                         "running into the token limit (default: %d; no limit with "
+                         "--original-rules)" % REASON_MAX_CHARS)
     ap.add_argument("--last-move", action="store_true",
                     help="add the previous move to the prompt's HISTORY / CONTEXT block")
     ap.add_argument("--last-moves", type=int, default=None, metavar="N",
@@ -764,21 +757,26 @@ def main():
     except ValueError as e:
         ap.error(str(e))
 
-    if args.schema_order and not args.structured:
+    # Our rules always ask for the JSON reply; the released one asked for "<int> | <reason>".
+    structured = args.structured or not args.original_rules
+    if args.schema_order and not structured:
         ap.error("--schema-order requires --structured")
     schema_order = (args.schema_order or DEFAULT_SCHEMA_ORDER).replace("-", "_")
-    if args.reason_max_chars is not None:
-        if not args.structured:
+    reason_max_chars = args.reason_max_chars
+    if reason_max_chars is not None:
+        if not structured:
             ap.error("--reason-max-chars requires --structured")
-        if args.reason_max_chars < 1:
+        if reason_max_chars < 1:
             ap.error("--reason-max-chars must be a positive number")
+    elif not args.original_rules:
+        reason_max_chars = REASON_MAX_CHARS
 
-    if args.structured:
+    if structured:
         other = [s for pid, s in seat_specs.items()
-                 if s == "dummy" or (pid in resolved and resolved[pid][0] != "ollama_native")]
+                 if pid in resolved and resolved[pid][0] != "ollama_native"]
         if other:
-            ap.error(f"--structured needs every LLM player to be ollama_native; "
-                     f"not: {', '.join(other)}")
+            ap.error(f"JSON replies need every LLM player to be ollama_native "
+                     f"(or use --original-rules); not: {', '.join(other)}")
 
     # Check every Ollama server answers before any game starts, so a partner's
     # laptop that is off or firewalled fails now with its host and port named.
@@ -817,12 +815,11 @@ def main():
     else:
         cap = f"{args.max_tokens} tokens, no newline stop"
     print(f"legal moves in prompt: {not args.no_legal_moves}   output cap: {cap}")
-    structured = "False"
-    if args.structured:
-        limit = (f", reason <= {args.reason_max_chars} chars"
-                 if args.reason_max_chars else "")
-        structured = f"True ({schema_order}{limit})"
-    print(f"structured output: {structured}   last-move context: {last_moves or False}")
+    shown = "False"
+    if structured:
+        limit = f", reason <= {reason_max_chars} chars" if reason_max_chars else ""
+        shown = f"True ({schema_order}{limit})"
+    print(f"structured output: {shown}   last-move context: {last_moves or False}")
     if args.move_outcomes or args.legal_order != "ascending":
         print(f"move outcomes in prompt: {args.move_outcomes}   "
               f"legal-move order: {args.legal_order}")
@@ -843,9 +840,9 @@ def main():
         delay=args.delay,
         no_think=args.no_think,
         max_tokens=args.max_tokens,
-        structured=args.structured,
+        structured=structured,
         schema_order=schema_order,
-        reason_max_chars=args.reason_max_chars,
+        reason_max_chars=reason_max_chars,
         last_move=last_moves,
         move_outcomes=args.move_outcomes,
         legal_order=args.legal_order,

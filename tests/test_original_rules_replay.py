@@ -12,7 +12,7 @@ import pytest
 import decision_log
 import ludo_rules as R
 import run_games
-from llm_backends import DEFAULT_SCHEMA_ORDER, _parse_move_json, parse_spec
+from llm_backends import DEFAULT_SCHEMA_ORDER, parse_spec
 
 LOGS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                     "llm_game_results")
@@ -80,7 +80,7 @@ def replay_backend(logged_calls):
         queue.setdefault(rec["model_spec"], []).append(rec)
     queue = {spec: iter(recs) for spec, recs in queue.items()}
 
-    def make_llm(spec, structured=False, **_):
+    def make_llm(spec, **_):
         def call(prompt):
             rec = next(queue[spec])
             call.last_content = rec["raw_reply"] or ""
@@ -88,12 +88,7 @@ def replay_backend(logged_calls):
             call.last_reasoning = rec["reasoning_text"] or ""
             call.last_prompt_tokens = rec["prompt_tokens"]
             call.last_completion_tokens = rec["completion_tokens"]
-            if rec["finish_reason"] == "timeout":
-                return ""
-            if not structured:
-                return call.last_content
-            parsed = _parse_move_json(call.last_content)
-            return "" if parsed is None else f"{parsed[0]} | {parsed[1]}"
+            return "" if rec["finish_reason"] == "timeout" else call.last_content
         call.spec, call.base_url = spec, parse_spec(spec)[2]
         call.last_content, call.last_finish_reason, call.last_reasoning = "", None, ""
         call.last_prompt_tokens = call.last_completion_tokens = None
