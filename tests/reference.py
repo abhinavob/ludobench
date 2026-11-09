@@ -4,17 +4,20 @@ Independent reference rules for the tests.
 Each player's route is written out as an explicit list of cells, and a piece is
 walked along it one pip at a time. Nothing here is shared with ludo_rules.
 """
+from functools import lru_cache
+
 SAFE = {0, 8, 13, 21, 26, 34, 39, 47}
 STARTS = {0: 0, 1: 13, 2: 26, 3: 39}
 PASS = "start square passed again"          # original rules: a cell where no piece may stop
 
 
+@lru_cache(maxsize=None)
 def route(player, original=False):
     """Cells from the start square to the home end, in walking order."""
     start = STARTS[player]
     track = [(start + i) % 52 for i in range(52)]
     home = [52 + 6 * player + k for k in range(6)]
-    return track + ([PASS] if original else []) + home
+    return tuple(track + ([PASS] if original else []) + home)
 
 
 def walk(player, pos, dice, original=False):

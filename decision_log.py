@@ -9,8 +9,9 @@ A run writes three files to its own folder:
 A ply is one dice roll. A roll with no legal move is logged too (skipped=true),
 so ply numbers have no gaps and a game can be replayed from the log alone:
 tokens_before + dice + legal_moves + player_id fix the position exactly.
-Dice are logged per ply because the engine, RandomAgent and the LLM fallback
-all draw from the same global RNG, so the seed alone does not fix the dice.
+Dice are logged per ply because with original_rules the engine, RandomAgent
+and the LLM fallback share one global generator, so the seed alone does not fix
+the dice; otherwise each has its own stream seeded from the game seed.
 
 Nothing here draws random numbers or changes the game: it only observes
 env.step, env.roll_dice and env.apply_move.

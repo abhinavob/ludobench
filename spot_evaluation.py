@@ -6,6 +6,7 @@ import re
 import ludo_rules as rules
 from agents import HeuristicAgent
 from llm_agent import LLMAgent
+from ludo_env import random_streams
 
 
 class SpotEnv:
@@ -21,6 +22,7 @@ class SpotEnv:
         self.START_POSITIONS = {pid: rules.START_POSITIONS[pid] for pid in self.player_ids}
 
         self.tokens = tokens
+        self.rng = random_streams()            # the global generator, as before
 
         # LLM logging fields expected by LLMAgent
         self.log_file = io.StringIO()

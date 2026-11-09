@@ -1,4 +1,3 @@
-import random
 import re
 from agents import BaseAgent
 
@@ -251,13 +250,13 @@ OUTPUT FORMAT (STRICT)
         except Exception:
             env.llm_fallbacks += 1
             env.last_llm_fallback = True
-            return random.choice(legal_moves)
+            return env.rng["fallback"].choice(legal_moves)
 
         if answer in legal_moves:
             return answer
         env.llm_fallbacks += 1
         env.last_llm_fallback = True
-        return random.choice(legal_moves)
+        return env.rng["fallback"].choice(legal_moves)
 
     @staticmethod
     def _parse_robust(text, legal_moves):

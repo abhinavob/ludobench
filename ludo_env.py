@@ -2,17 +2,33 @@ import random
 
 import ludo_rules as rules
 
+STREAMS = ("dice", "random_player", "fallback", "legal_order")
+
+
+def random_streams(seed=None):
+    """
+    One generator per source of randomness, each seeded from (seed, its label),
+    so the dice of a seed are the same whoever plays. Without a seed every
+    source shares the global generator, as in the released code.
+    """
+    if seed is None:
+        return dict.fromkeys(STREAMS, random)
+    return {label: random.Random(f"{seed}:{label}") for label in STREAMS}
+
 
 class LudoEnv:
     def __init__(self, seed=42, num_players=2, player_ids=None, original_rules=False):
-        random.seed(seed)
-        # True: the released LudoBench movement rules (see ludo_rules)
+        # True: everything as in the released LudoBench code: its movement rules,
+        # seats 0..n-1, seat 0 starts, one shared random generator
         self.original_rules = original_rules
+        if original_rules:
+            random.seed(seed)
+        self.rng = random_streams(None if original_rules else seed)
         # Move log (list of dicts)
         self.log_file = open("game_log.txt", "w", encoding="utf-8")
         self.llm_log_file = open("llm_log.txt", "w", encoding="utf-8")
         if player_ids is None:
-            player_ids = list(range(num_players))
+            player_ids = rules.seats(num_players, original_rules)
         self.player_ids = list(player_ids)
         self.NUM_PLAYERS = len(self.player_ids)
         self.player_logs = {
@@ -32,7 +48,9 @@ class LudoEnv:
         self.SAFE_SQUARES = rules.SAFE_SQUARES
 
         # Game state
-        self.current_player_idx = 0
+        self.roll_off = []             # rounds of [player, roll] that chose the first player
+        self.current_player_idx = 0 if original_rules else self._roll_off()
+        self.first_player = self.player_ids[self.current_player_idx]
         self.tokens = {
             pid: [-1] * self.TOKENS_PER_PLAYER for pid in self.player_ids
         }
@@ -41,7 +59,17 @@ class LudoEnv:
 
     # ---------- Dice ----------
     def roll_dice(self):
-        return random.randint(1, 6)
+        return self.rng["dice"].randint(1, 6)
+
+    def _roll_off(self):
+        """Seat index of the first player: all roll, the highest starts, tied highest re-roll."""
+        contenders = self.player_ids
+        while len(contenders) > 1:
+            rolls = [[pid, self.roll_dice()] for pid in contenders]
+            self.roll_off.append(rolls)
+            top = max(r for _, r in rolls)
+            contenders = [pid for pid, r in rolls if r == top]
+        return self.player_ids.index(contenders[0])
 
     # ---------- Legal Moves ----------
     def get_legal_moves(self, player, dice):

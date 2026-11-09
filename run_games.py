@@ -44,7 +44,7 @@ import sys
 import time
 
 import ludo_rules as rules
-from ludo_env import LudoEnv
+from ludo_env import LudoEnv, STREAMS
 from agents import BaseAgent, RandomAgent, HeuristicAgent
 from llm_agent import LLMAgent
 from evaluation import evaluate
@@ -63,7 +63,7 @@ class FirstLegalAgent(BaseAgent):
 
 BASELINES = {"random": RandomAgent, "heuristic": HeuristicAgent,
              "first": FirstLegalAgent}
-LEGAL_ORDERS = ("ascending", "reversed")
+LEGAL_ORDERS = ("ascending", "reversed", "shuffled")
 
 
 def is_llm_spec(spec):
@@ -201,6 +201,8 @@ class TrackedLLMAgent(LLMAgent):
         shown = list(legal_moves)
         if self.legal_order == "reversed":
             shown.reverse()
+        elif self.legal_order == "shuffled":
+            env.rng["legal_order"].shuffle(shown)
         self.llm_call.edit_prompt = None
         if self.move_outcomes and self.include_legal_moves_in_prompt:
             self.llm_call.edit_prompt = add_move_outcomes(env, player, dice, shown)
@@ -468,14 +470,14 @@ def build_agent(spec, include_legal_moves, uncapped, labels=None, no_think=False
                            legal_order=legal_order), spec
 
 
-def player_info(specs):
+def player_info(specs, seats):
     """pid -> who plays that seat and where its model is served."""
     players = {}
-    for pid, spec in enumerate(specs):
+    for seat, (pid, spec) in enumerate(zip(seats, specs)):
         provider = model = host = None
         if is_llm_spec(spec):
             provider, model, host = parse_spec(spec)
-        players[pid] = {"model_spec": spec, "host": host, "seat_position": pid,
+        players[pid] = {"model_spec": spec, "host": host, "seat_position": seat,
                         "provider": provider, "model": model}
     return players
 
@@ -486,7 +488,8 @@ def run_games(specs, games, seed0, include_legal_moves, uncapped, out_dir, run_i
               ollama_versions=None, schema_order=DEFAULT_SCHEMA_ORDER,
               reason_max_chars=None, move_outcomes=False, legal_order="ascending",
               original_rules=False):
-    players = player_info(specs)
+    seats = rules.seats(len(specs), original_rules)
+    players = player_info(specs, seats)
     # The field order only exists when structured output is on.
     schema_order = schema_order if structured else None
     # Kept in run.json so a results folder is self-describing. The capped values
@@ -494,6 +497,14 @@ def run_games(specs, games, seed0, include_legal_moves, uncapped, out_dir, run_i
     # null when uncapped without --max-tokens.
     settings = {
         "original_rules": original_rules,
+        "seats": seats,
+        "first_player": ("seat 0" if original_rules else
+                         "roll-off on the dice stream; only players tied for the "
+                         "highest roll re-roll"),
+        "random_streams": ("one shared generator: random.seed(game seed)"
+                           if original_rules else
+                           {label: f"random.Random('<game seed>:{label}')"
+                            for label in STREAMS}),
         "specs": list(specs),
         "games": games,
         "seed0": seed0,
@@ -587,6 +598,8 @@ def run_games(specs, games, seed0, include_legal_moves, uncapped, out_dir, run_i
         rec["llm_fallbacks"] = stats.get("llm_fallbacks", 0)
         rec["captures"] = stats.get("captures", 0)
         rec["safe_moves"] = stats.get("safe_moves", 0)
+        rec["first_player"] = env.first_player
+        rec["roll_off"] = env.roll_off
         run.write_game(rec)
         records.append(rec)
         if failure is not None:
@@ -661,11 +674,14 @@ def summarise(records, specs):
 def main():
     ap = argparse.ArgumentParser(description="Full Ludo games: LLMs, baselines, or you.")
     ap.add_argument("--p0", default="dummy",
-                    help="agent for player 0: human | random | heuristic | first | gt[:depth] "
+                    help="agent for the first seat (player 0): human | random | heuristic "
+                         "| first | gt[:depth] "
                          "| dummy | provider:model")
-    ap.add_argument("--p1", default="heuristic", help="agent for player 1")
-    ap.add_argument("--p2", default=None, help="agent for player 2 (optional)")
-    ap.add_argument("--p3", default=None, help="agent for player 3 (optional)")
+    ap.add_argument("--p1", default="heuristic",
+                    help="agent for the second seat: player 2 in a two-player game "
+                         "(player 1 with --original-rules), otherwise player 1")
+    ap.add_argument("--p2", default=None, help="agent for the third seat, player 2 (optional)")
+    ap.add_argument("--p3", default=None, help="agent for the fourth seat, player 3 (optional)")
     ap.add_argument("--games", type=int, default=1)
     ap.add_argument("--seed0", type=int, default=0, help="first seed; games use seed0..seed0+n-1")
     ap.add_argument("--max-steps", type=int, default=1000)
@@ -713,7 +729,8 @@ def main():
                          "reaches a safe square, leaves base or enters the home path")
     ap.add_argument("--legal-order", default="ascending", choices=LEGAL_ORDERS,
                     help="order of the legal-move list in the prompt (default "
-                         "ascending, as in the released code)")
+                         "ascending, as in the released code; shuffled draws a new "
+                         "order for each prompt from the game's legal_order stream)")
     ap.add_argument("--original-rules", action="store_true",
                     help="play by the released LudoBench rules, to reproduce the "
                          "original paper and its logged games")
@@ -740,7 +757,8 @@ def main():
     if len(specs) not in (2, 3, 4):
         raise SystemExit("need 2-4 players")
 
-    llm_players = [(pid, s) for pid, s in enumerate(specs) if is_llm_spec(s)]
+    seat_specs = dict(zip(rules.seats(len(specs), args.original_rules), specs))
+    llm_players = [(pid, s) for pid, s in seat_specs.items() if is_llm_spec(s)]
     try:
         resolved = {pid: parse_spec(s) for pid, s in llm_players}
     except ValueError as e:
@@ -756,7 +774,7 @@ def main():
             ap.error("--reason-max-chars must be a positive number")
 
     if args.structured:
-        other = [s for pid, s in enumerate(specs)
+        other = [s for pid, s in seat_specs.items()
                  if s == "dummy" or (pid in resolved and resolved[pid][0] != "ollama_native")]
         if other:
             ap.error(f"--structured needs every LLM player to be ollama_native; "
@@ -772,7 +790,7 @@ def main():
                 ollama_versions[base_url] = check_ollama(base_url)
                 where += f"  (Ollama {ollama_versions[base_url]})"
             except RuntimeError as e:
-                raise SystemExit(f"P{pid} {specs[pid]}: {e}")
+                raise SystemExit(f"P{pid} {seat_specs[pid]}: {e}")
         print(f"P{pid} {model} -> {where}")
 
     if args.no_think:

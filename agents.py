@@ -7,14 +7,12 @@ class BaseAgent:
         legal_moves : list of token indices
         """
         raise NotImplementedError
-import random
-
 import ludo_rules as rules
 
 
 class RandomAgent(BaseAgent):
     def select_move(self, env, player, dice, legal_moves):
-        return random.choice(legal_moves)
+        return env.rng["random_player"].choice(legal_moves)
 class HeuristicAgent(BaseAgent):
     def scores(self, env, player, dice, legal_moves):
         """
