@@ -202,19 +202,25 @@ def ollama_num_ctx(base_url, model, timeout=3):
 # ---------- writers ----------
 
 class RunLog:
-    """Owns a run's folder and its three files."""
+    """Owns a run's folder and its three files; `resumed` continues a stopped run."""
 
     def __init__(self, out_dir, run_id, players, settings, config, ollama_versions,
-                 env):
-        os.makedirs(out_dir)                      # must be new: never mix two runs
+                 env, resumed=None):
+        os.makedirs(out_dir, exist_ok=True)
         self.dir = out_dir
         self.run_id = run_id
         self.players = players                    # pid -> {model_spec, host, ...}
         self.config = config
         self._num_ctx = {}
-        self._decisions = open(os.path.join(out_dir, "decisions.jsonl"), "w",
+        mode = "a" if resumed else "w"
+        self._decisions = open(os.path.join(out_dir, "decisions.jsonl"), mode,
                                encoding="utf-8")
-        self._games = open(os.path.join(out_dir, "games.jsonl"), "w", encoding="utf-8")
+        self._games = open(os.path.join(out_dir, "games.jsonl"), mode, encoding="utf-8")
+        if resumed:
+            self.meta = resumed
+            self.meta.setdefault("resumed_at", []).append(time.strftime("%Y-%m-%dT%H:%M:%S"))
+            self.write_meta()
+            return
         self.meta = {
             "schema_version": SCHEMA_VERSION,
             "run_id": run_id,

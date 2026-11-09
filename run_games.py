@@ -32,7 +32,9 @@ a model, or watch a game:
 
 import argparse
 import csv
+import json
 import os
+import re
 import sys
 import time
 
@@ -530,6 +532,41 @@ def update_cells(path, row):
         writer.writerows(rows + [row])
 
 
+def resume(out_dir, settings, players):
+    """
+    (run.json, finished game records) of an earlier run stopped in out_dir, or
+    (None, []). Its finished games are kept; the plies of a game it did not
+    finish are dropped, so that game restarts from its seed. A folder holding a
+    run with other settings, players or code is refused.
+    """
+    path = os.path.join(out_dir, "run.json")
+    if not os.path.exists(path):
+        return None, []
+    with open(path, encoding="utf-8") as f:
+        meta = json.load(f)
+    if ({**meta["settings"], "games": 0} != json.loads(json.dumps({**settings, "games": 0}))
+            or meta["players"] != json.loads(json.dumps(players))
+            or meta["git"]["commit"] != git_state()["commit"]):
+        raise SystemExit(f"{out_dir} holds a run with other settings, players or code; "
+                         f"choose another --experiment")
+    games_path = os.path.join(out_dir, "games.jsonl")
+    decisions_path = os.path.join(out_dir, "decisions.jsonl")
+    with open(games_path, encoding="utf-8") as f:     # a line cut off by a stop has no newline
+        games = [g for g in (json.loads(line) for line in f if line.endswith("\n"))
+                 if g["termination_reason"] != "error"]
+    finished = {g["game_id"] for g in games}
+    with open(decisions_path, encoding="utf-8") as f:
+        plies = [line for line in f if line.endswith("\n")
+                 and re.search(r'"game_id": "([^"]+)"', line).group(1) in finished]
+    with open(games_path, "w", encoding="utf-8") as f:
+        f.writelines(json.dumps(g) + "\n" for g in games)
+    with open(decisions_path, "w", encoding="utf-8") as f:
+        f.writelines(plies)
+    meta["settings"] = settings
+    meta["games"] = {"attempted": len(games), "completed": len(games), "errored": 0}
+    return meta, games
+
+
 def run_games(specs, games, seed0, out_dir, include_legal_moves=True, legal_order="ascending",
               move_outcomes=False, history=0, think=False, effort=None, original_rules=False,
               released=None, max_steps=1000, watch=False, delay=0.0, ollama_versions=None,
@@ -620,14 +657,17 @@ def run_games(specs, games, seed0, out_dir, include_legal_moves=True, legal_orde
         "context_mode": CONTEXT_MODE,
     }
 
+    meta, records = resume(out_dir, settings, players)
+    if records:
+        print(f"  {len(records)} of {games} games already finished"
+              + ("" if len(records) >= games else "; resuming"))
     run = None
-    records = []
-    for g in range(games):
+    for g in range(len(records), games):
         seed = seed0 + g
         env = LudoEnv(seed=seed, num_players=len(specs), original_rules=original_rules)
         if run is None:                             # needs an env for its constants
             run = RunLog(out_dir, os.path.basename(os.path.normpath(out_dir)), players,
-                         settings, config, ollama_versions or {}, env)
+                         settings, config, ollama_versions or {}, env, resumed=meta)
 
         labels = {pid: spec for pid, spec in zip(env.player_ids, specs)}
         human_playing = "human" in specs
