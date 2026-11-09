@@ -21,3 +21,13 @@ spot_results_40/*/*/llm_outputs/
 # local batch launchers and their terminal output
 *.bat
 *_console.txt
+
+# tool and OS clutter, local env variants
+.pytest_cache/
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.env.*
+runs_*.txt
+review/
