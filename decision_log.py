@@ -62,6 +62,17 @@ DEFINITIONS = {
                       "unparseable: no token index could be read; illegal: an "
                       "index was read but is not a legal move",
     "parsed_index": "the index the reply parser read, legal or not; null if none",
+    "reason_chars": "length in characters of the parsed reason; null if no reply "
+                    "was parsed",
+    "reason_first": "in a valid JSON reply, the reason came before the piece in "
+                    "the raw text (not every model keeps the schema's order); "
+                    "null for any other reply",
+    "completion_tokens": "output tokens the server reported, thinking included",
+    "thinking_tokens": "tokens the model streamed as thinking (Ollama native, one "
+                       "chunk per token); null if not counted",
+    "hit_ceiling": "the reply stopped at the output-token ceiling (finish_reason "
+                   "length); a reply cut off there is invalid",
+    "latency_ms": "wall-clock time of the model call, the response time",
     "raw_reply": "the model's reply text as received, before any parsing",
     "prompt_hash": "first 16 hex chars of sha256 of the user prompt",
     "system_prompt_hash": "first 16 hex chars of sha256 of the system prompt",
@@ -364,6 +375,7 @@ class GameLog:
             "raw_reply": None, "parsed_index": None, "parsed_reason": None,
             "reasoning_text": None, "finish_reason": None, "was_fallback": None,
             "fallback_cause": None, "prompt_tokens": None, "completion_tokens": None,
+            "reason_chars": None, "reason_first": None, "thinking_tokens": None, "hit_ceiling": None,
             "latency_ms": None, "prompt_hash": None}
 
     def _record(self, before):

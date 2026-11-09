@@ -47,7 +47,7 @@ from ludo_env import LudoEnv, STREAMS
 from agents import BaseAgent, RandomAgent, HeuristicAgent
 from llm_agent import LLMAgent
 from evaluation import evaluate
-from llm_backends import (make_llm, parse_spec, check_ollama,
+from llm_backends import (make_llm, parse_spec, check_ollama, reason_first,
                           DEFAULT_SYSTEM_PROMPT, DEFAULT_TIMEOUT,
                           SCHEMA_ORDERS, DEFAULT_SCHEMA_ORDER, REASON_MAX_CHARS)
 from board_render import render_board, describe_move, group_moves
@@ -228,6 +228,10 @@ class TrackedLLMAgent(LLMAgent):
             "raw_reply": raw,
             "parsed_index": parsed,
             "parsed_reason": env.last_llm_reason or None,
+            "reason_chars": len(env.last_llm_reason) if parsed is not None else None,
+            "reason_first": reason_first(raw or ""),
+            "thinking_tokens": getattr(call, "last_thinking_tokens", None),
+            "hit_ceiling": why == "length",
             "reasoning_text": getattr(call, "last_reasoning", "") or None,
             "finish_reason": why,
             "was_fallback": fallback,
