@@ -148,6 +148,56 @@ def test_six_that_wins_ends_the_game():
     assert env.game_over and env.winner == 0 and env.tokens[0] == [end] * 4
 
 
+# ---------- invariant checks ----------
+
+class Choose:
+    """Agent that always names the given token, legal or not."""
+
+    def __init__(self, token):
+        self.token = token
+
+    def select_move(self, env, player, dice, legal_moves):
+        return self.token
+
+
+def test_an_illegal_choice_stops_the_game():
+    env = staged({0: [5, -1, -1, -1]}, [3])
+    with pytest.raises(RuntimeError, match=r"chose 1, not one of \[0\]"):
+        env.step({0: Choose(1), 2: Fixed()})
+
+
+def test_a_piece_off_its_route_breaks_an_invariant():
+    env = staged({0: [5, 51, -1, -1]}, [3])                  # P0 never stops on 51
+    with pytest.raises(RuntimeError, match="off its route"):
+        env.step({0: Fixed(), 2: Fixed()})
+
+
+def test_a_missed_capture_breaks_an_invariant(monkeypatch):
+    env = staged({0: [10, -1, -1, -1], 2: [14, -1, -1, -1]}, [4])
+    real = R.apply_move
+    monkeypatch.setattr(R, "apply_move", lambda t, p, i, d, o: (
+        {**real(t, p, i, d, o)[0], 2: list(t[2])}, []))
+    with pytest.raises(RuntimeError, match="captured pieces"):
+        env.step({0: Fixed(), 2: Fixed()})
+
+
+def test_another_roll_without_a_six_breaks_an_invariant():
+    env = staged({0: [5, -1, -1, -1]}, [3])
+    env.current_player_idx = 0
+    move = env.apply_move
+    env.apply_move = lambda p, t, d: (move(p, t, d), setattr(env, "current_player_idx", 0))
+    with pytest.raises(RuntimeError, match="only a 6 gives another roll"):
+        env.step({0: Fixed(), 2: Fixed()})
+
+
+def test_an_unnoticed_win_breaks_an_invariant():
+    end = R.home_range(0)[1]
+    env = staged({0: [end, end, end, 50]}, [6])
+    env.check_winner = lambda player: False
+    with pytest.raises(RuntimeError, match="all pieces finished"):
+        env.step({0: Fixed(3), 2: Fixed()})
+
+
 # ---------- random streams ----------
 
 def test_each_source_of_randomness_has_its_own_stream():

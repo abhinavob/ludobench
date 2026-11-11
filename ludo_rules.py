@@ -61,6 +61,16 @@ def route_index(player, pos, original=False):
     return _entry(original) + pos - home_range(player)[0] + 1
 
 
+def on_route(player, pos, original=False):
+    """pos is the base or a cell of the player's route."""
+    if pos == BASE:
+        return True
+    if 0 <= pos < BOARD_SIZE:
+        return route_index(player, pos, original) < track_length(original)
+    home_start, home_end = home_range(player)
+    return home_start <= pos <= home_end
+
+
 def destination(player, pos, dice, original=False):
     """Where a piece of `player` on `pos` lands with `dice`, or None if it cannot move."""
     home_start, home_end = home_range(player)

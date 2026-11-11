@@ -131,6 +131,8 @@ class LudoEnv:
         player = self.player_ids[self.current_player_idx]
         legal_moves = self.get_legal_moves(player, dice)
 
+        before = {pid: list(t) for pid, t in self.tokens.items()}
+        token = None
         if legal_moves:
             token = agents[player].select_move(
                 env=self,
@@ -138,10 +140,51 @@ class LudoEnv:
                 dice=dice,
                 legal_moves=legal_moves
             )
+            if token not in legal_moves:
+                raise RuntimeError(f"P{player} chose {token!r}, not one of {legal_moves}")
             self.apply_move(player, token, dice)
         else:
             if dice != 6:
                 self.current_player_idx = (self.current_player_idx + 1) % self.NUM_PLAYERS
+        self.check_roll(before, player, dice, token)
+
+    def check_roll(self, before, player, dice, token):
+        """Raise if the board or the turn after a roll breaks a rule (token None: no move)."""
+        def broken(what):
+            raise RuntimeError(f"invariant broken: {what} (P{player}, dice {dice}, token {token}, "
+                               f"before {before}, after {self.tokens})")
+
+        for pid, toks in self.tokens.items():
+            if len(toks) != self.TOKENS_PER_PLAYER:
+                broken(f"P{pid} has {len(toks)} pieces")
+            if not all(rules.on_route(pid, pos, self.original_rules) for pos in toks):
+                broken(f"a P{pid} piece is off its route")
+            crowded = [p for p in toks if 0 <= p < self.BOARD_SIZE and p not in self.SAFE_SQUARES]
+            if len(crowded) != len(set(crowded)):
+                broken(f"P{pid} pieces share a non-safe square")
+        moved = [(pid, i) for pid, toks in self.tokens.items()
+                 for i, pos in enumerate(toks) if pos != before[pid][i]]
+        if token is None:
+            if moved:
+                broken("a roll without a legal move changed the board")
+        else:
+            to = rules.destination(player, before[player][token], dice, self.original_rules)
+            caught = [(pid, i) for pid, i in moved if pid != player]
+            on_landing = [(pid, i) for pid, toks in before.items() if pid != player
+                          for i, pos in enumerate(toks) if pos == to]
+            if [m for m in moved if m[0] == player] != [(player, token)] or self.tokens[player][token] != to:
+                broken("the moved piece did not go to its destination alone")
+            if caught and to in self.SAFE_SQUARES:
+                broken("capture on a safe square")
+            if any(self.tokens[pid][i] != rules.BASE for pid, i in caught):
+                broken("a captured piece is not in its base")
+            if caught != (on_landing if rules.captures(before, player, to) else []):
+                broken("captured pieces are not exactly the opponents on the landing square")
+        winners = [pid for pid in self.player_ids if rules.has_won(self.tokens, pid)]
+        if winners != ([self.winner] if self.game_over else []):
+            broken(f"winner {self.winner}, players with all pieces finished {winners}")
+        if not self.game_over and (self.player_ids[self.current_player_idx] == player) != (dice == 6):
+            broken("only a 6 gives another roll")
 
 
     # ---------- Play Full Game ----------
