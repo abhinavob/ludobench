@@ -24,7 +24,7 @@ def test_components_agree_with_the_rules_module(original):
     rng = random.Random(3)
     for _ in range(3000):
         players = ref.seat_sets(rng)
-        e = env(ref.random_state(rng, players), original)
+        e = env(ref.random_state(rng, players, original), original)
         p, dice = rng.choice(players), rng.randint(1, 6)
         legal = compute_legal_moves(e, p, dice)
         assert legal == R.legal_moves(e.tokens, p, dice, original)
@@ -40,8 +40,8 @@ def test_components_agree_with_the_rules_module(original):
 def test_heuristic_scores_progress_capture_and_safe_square():
     e = env({0: [-1, 10, 4, R.home_range(0)[0]], 2: [14, -1, -1, -1]})
     assert HeuristicAgent().scores(e, 0, 6, [0, 1, 2]) == {0: 50, 1: 16, 2: 10}
-    assert HeuristicAgent().scores(e, 0, 4, [1, 2, 3]) == {1: 14 + 100, 2: 8 + 20, 3: 56}
-    assert HeuristicAgent().scores(e, 0, 5, [3]) == {3: 57}
+    assert HeuristicAgent().scores(e, 0, 4, [1, 2, 3]) == {1: 14 + 100, 2: 8 + 20, 3: 55}
+    assert HeuristicAgent().scores(e, 0, 5, [3]) == {3: 56}
 
 
 def test_heuristic_takes_first_best_move_in_list_order():
@@ -50,24 +50,49 @@ def test_heuristic_takes_first_best_move_in_list_order():
 
 
 def test_progress_counts_pips_from_start():
-    e = env({0: [-1, 0, 51, R.home_range(0)[1]], 2: [-1] * 4})
-    assert [decision_log.token_progress(e, 0, x) for x in e.tokens[0]] == [0, 1, 52, 58]
+    e = env({0: [-1, 0, 50, R.home_range(0)[1]], 2: [-1] * 4})
+    assert [decision_log.token_progress(e, 0, x) for x in e.tokens[0]] == [0, 1, 51, 57]
     old = env({0: [R.home_range(0)[1]] * 4, 2: [-1] * 4}, original=True)
     assert decision_log.token_progress(old, 0, R.home_range(0)[1]) == 59
 
 
 def test_exposure_check_stops_at_the_opponents_home_entry():
-    # P2's last track square is 25; from 24 it can reach 25 but not 27 (it enters its home path).
-    assert decision_log.is_exposed(env({0: [25, -1, -1, -1], 2: [24, -1, -1, -1]}), 0, 25)
-    assert not decision_log.is_exposed(env({0: [27, -1, -1, -1], 2: [24, -1, -1, -1]}), 0, 27)
-    # Original rules: from 23 a 4 also lands in P2's home path (that move skips a pip).
+    # P2's last track square is 24; from 23 it can reach 24 but not 25 (it enters its home path).
+    assert decision_log.is_exposed(env({0: [24, -1, -1, -1], 2: [23, -1, -1, -1]}), 0, 24)
+    assert not decision_log.is_exposed(env({0: [25, -1, -1, -1], 2: [23, -1, -1, -1]}), 0, 25)
+    # Original rules: P2 goes on to 25, but from 23 a 4 lands in its home path (skipping a pip).
+    assert decision_log.is_exposed(env({0: [25, -1, -1, -1], 2: [23, -1, -1, -1]}, True), 0, 25)
     assert not decision_log.is_exposed(env({0: [27, -1, -1, -1], 2: [23, -1, -1, -1]}, True), 0, 27)
 
 
+def step(a, b):
+    return b[0] - a[0], b[1] - a[1]
+
+
+def adjacent(a, b):
+    """Neighbouring squares; the track turns the board's inner corners diagonally."""
+    return max(map(abs, step(a, b))) == 1
+
+
+@pytest.mark.parametrize("player", range(4))
+def test_each_route_walks_one_square_at_a_time_on_the_drawn_board(player):
+    pos, cells = R.START_POSITIONS[player], []
+    while pos is not None:
+        cells.append(board_render.coords(player, pos))
+        pos = R.destination(player, pos, 1)
+    assert len(cells) == 57 and len(set(cells)) == 57          # 56 steps, no square twice
+    assert all(adjacent(a, b) for a, b in zip(cells, cells[1:]))
+    assert all(adjacent(a, b) for a, b in zip(board_render.TRACK, board_render.TRACK[1:] +
+                                               board_render.TRACK[:1]))
+    assert step(cells[50], cells[51]) == step(cells[51], cells[52])   # straight into the column
+    behind = board_render.TRACK[(R.START_POSITIONS[player] - 1) % 52]
+    assert behind not in cells and adjacent(behind, cells[0])
+
+
 def test_board_labels_home_moves_and_finishes():
-    e = env({0: [51, R.home_range(0)[0], -1, -1], 2: [-1] * 4})
-    assert board_render.move_outcome(e, 0, 1, 0)[1] == "sq51 -> home+0"
-    assert board_render.move_outcome(e, 0, 2, 1)[1] == "home+0 -> home+2"
+    e = env({0: [50, R.home_range(0)[0], -1, -1], 2: [-1] * 4})
+    assert board_render.move_outcome(e, 0, 1, 0)[1] == "sq50 -> home1"
+    assert board_render.move_outcome(e, 0, 2, 1)[1] == "home1 -> home3"
     assert "FINISHES" in board_render.describe_move(e, 0, 5, 1)
 
 

@@ -72,11 +72,13 @@ IMPORTANT:
    higher indices and wrap from 51 to 0.
 2. Each player has a fixed START square on the main board.
 3. Each pip of the dice moves a token one square forward along its route.
-4. From its START a token visits every main-board square once, ending on the
-   square just before its START (51 pips from START).
+4. From its START a token moves along the main board to the square two
+   before its START (50 pips from START; for START 0 that is square 50). It
+   never lands on the square just before its START, which other players'
+   tokens still pass through.
 5. The next pip takes it into that player's HOME PATH (6 squares, private
    indices >= 52). A token never lands on or passes its own START again.
-6. The last home-path square is HOME_END, 57 pips from START.
+6. The last home-path square is HOME_END, 56 pips from START.
 7. In the home path a token may move by any roll that does not pass HOME_END.
 8. A token finishes only by landing EXACTLY on HOME_END; a roll that would
    pass HOME_END cannot be used by that token.""",
@@ -101,7 +103,7 @@ IMPORTANT:
     "path_note": """\
 PATH NOTE:
 - Movement is RELATIVE to each player's START square.
-- From the square just before your START, the next pip enters YOUR home path.
+- From the square two before your START, the next pip enters YOUR home path.
 - Other players have DIFFERENT starts and DIFFERENT home path ranges.
 - Home path ranges are player-specific; only that player can be there.
 - Safe squares are SHARED board squares (0–51) for all players.""",

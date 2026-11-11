@@ -32,7 +32,8 @@ def _build_track():
 
 TRACK = _build_track()
 
-# Each player owns one arm of the cross.
+# Each player owns one arm of the cross: home cells 1-5, then the home end in
+# the centre square.
 HOME_COORDS = {
     0: [(7, c) for c in range(1, 7)],
     1: [(r, 7) for r in range(1, 7)],
@@ -42,6 +43,15 @@ HOME_COORDS = {
 
 # Base corner sits beside the arm that player enters on.
 BASE_ANCHOR = {0: (2, 2), 1: (2, 10), 2: (10, 10), 3: (10, 2)}
+
+
+
+def coords(player, pos):
+    """(row, col) of a piece of `player` on `pos` (not the base)."""
+    if pos < rules.BOARD_SIZE:
+        return TRACK[pos]
+    return HOME_COORDS[player][pos - rules.home_range(player)[0]]
+
 
 COLOURS = {0: "\033[91m", 1: "\033[92m", 2: "\033[93m", 3: "\033[94m"}
 BOLD = "\033[1m"
@@ -69,16 +79,9 @@ def render_board(env, highlight=None, use_colour=True, labels=None):
 
     occupants = {}
     for pid in env.player_ids:
-        home_start = rules.home_range(pid)[0]
         for t_idx, pos in enumerate(env.tokens[pid]):
-            if pos == -1:
-                continue
-            if 0 <= pos < env.BOARD_SIZE:
-                cell = TRACK[pos]
-            else:
-                step = pos - home_start
-                cell = HOME_COORDS[pid][step] if step < env.HOME_LEN else (7, 7)
-            occupants.setdefault(cell, []).append((pid, t_idx))
+            if pos != -1:
+                occupants.setdefault(coords(pid, pos), []).append((pid, t_idx))
 
     for (r, c), here in occupants.items():
         pid, t_idx = here[0]
@@ -105,7 +108,7 @@ def render_board(env, highlight=None, use_colour=True, labels=None):
             elif pos == home_end:
                 parts.append("DONE")
             elif pos >= env.HOME_START:
-                parts.append(f"h{pos - home_start}")
+                parts.append(f"h{pos - home_start + 1}")
             else:
                 parts.append(f"sq{pos}")
         name = f" [{labels[pid]}]" if labels and pid in labels else ""
@@ -126,7 +129,7 @@ def move_outcome(env, player, dice, token_idx):
     def where(p):
         if p == home_end:
             return "finish"
-        return f"sq{p}" if p < rules.BOARD_SIZE else f"home+{p - home_start}"
+        return f"sq{p}" if p < rules.BOARD_SIZE else f"home{p - home_start + 1}"
     return new_pos, ("leave base" if pos == -1 else f"{where(pos)} -> {where(new_pos)}")
 
 

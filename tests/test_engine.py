@@ -143,7 +143,7 @@ def test_no_legal_move_passes_the_turn():
 
 def test_six_that_wins_ends_the_game():
     end = R.home_range(0)[1]
-    env = staged({0: [end, end, end, 51]}, [6])
+    env = staged({0: [end, end, end, 50]}, [6])
     env.play_game({0: Fixed(3), 2: Fixed()})
     assert env.game_over and env.winner == 0 and env.tokens[0] == [end] * 4
 

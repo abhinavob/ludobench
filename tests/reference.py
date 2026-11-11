@@ -13,9 +13,14 @@ PASS = "start square passed again"          # original rules: a cell where no pi
 
 @lru_cache(maxsize=None)
 def route(player, original=False):
-    """Cells from the start square to the home end, in walking order."""
+    """
+    Cells from the start square to the home end, in walking order. On the
+    standard board a piece turns into its home column from the square two
+    before its start; the original rules go round to the square just before
+    it and pass the start square once more.
+    """
     start = STARTS[player]
-    track = [(start + i) % 52 for i in range(52)]
+    track = [(start + i) % 52 for i in range(52 if original else 51)]
     home = [52 + 6 * player + k for k in range(6)]
     return tuple(track + ([PASS] if original else []) + home)
 
@@ -65,11 +70,15 @@ def play(tokens, player, idx, dice, original=False):
     return after, caught
 
 
-def random_state(rng, players):
-    """A board that rules allow: no own pieces together and no two players on one non-safe square."""
+def random_state(rng, players, original=False):
+    """
+    A board that rules allow: every piece on its own route, no own pieces
+    together and no two players on one non-safe square.
+    """
     while True:
         tokens = {}
         for p in players:
+            track = route(p, original)[:52 if original else 51]
             tokens[p] = []
             for _ in range(4):
                 r = rng.random()
@@ -78,7 +87,7 @@ def random_state(rng, players):
                 elif r < 0.4:
                     tokens[p].append(52 + 6 * p + rng.randrange(6))
                 else:
-                    tokens[p].append(rng.randrange(52))
+                    tokens[p].append(rng.choice(track))
         crowded = [x for t in tokens.values() for x in t if 0 <= x < 52 and x not in SAFE]
         if len(crowded) == len(set(crowded)):
             return tokens

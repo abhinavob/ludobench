@@ -7,11 +7,17 @@ spot evaluation) takes its rules from here.
 Positions: -1 is the base, 0-51 the shared track, and player p's home path is
 52 + 6p ... 57 + 6p, whose last cell is that player's home end.
 
+A piece's route is its relative squares 0-50 (its start square, then on to the
+square beside its home path on the standard board), then home cells 1-6, so
+relative 50 + d is home cell d and the home end is 56 pips from the start. A
+piece never stops on its own relative 51 (the square just behind its start),
+which other players' pieces pass through.
+
 Each function takes original=False. original=True gives the movement of the
 released LudoBench code: after its lap a piece passes its start square once
-more before the home path (58 pips from start to home end, and a 1 from the
-last track square is unusable), and inside the home path it moves only by the
-exact roll to the home end.
+more before the home path (58 pips from start to home end, and a 1 from
+relative 51 is unusable), and inside the home path it moves only by the exact
+roll to the home end.
 """
 
 BOARD_SIZE = 52
@@ -36,9 +42,14 @@ def home_range(player):
     return home_start, home_start + HOME_LEN - 1
 
 
+def track_length(original=False):
+    """Track squares on a piece's route: relative 0-50, or 0-51 with original rules."""
+    return BOARD_SIZE if original else BOARD_SIZE - 1
+
+
 def _entry(original):
     """Relative step at which home cell k is reached is _entry + k."""
-    return BOARD_SIZE if original else BOARD_SIZE - 1
+    return BOARD_SIZE if original else BOARD_SIZE - 2
 
 
 def route_index(player, pos, original=False):
@@ -57,7 +68,7 @@ def destination(player, pos, dice, original=False):
         return START_POSITIONS[player] if dice == 6 else None
     if pos < BOARD_SIZE:
         step = (pos - START_POSITIONS[player]) % BOARD_SIZE + dice
-        if step < BOARD_SIZE:
+        if step < track_length(original):
             return (START_POSITIONS[player] + step) % BOARD_SIZE
         cell = step - _entry(original)              # home cell 1..HOME_LEN
         return home_start + cell - 1 if 1 <= cell <= HOME_LEN else None

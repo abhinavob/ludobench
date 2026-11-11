@@ -44,7 +44,10 @@ def test_original_rules_prompt_is_the_released_prompt(kw, released):
 
 def test_our_prompt_states_our_rules():
     text = prompt(False)[0]
-    for phrase in ("57 pips from START", "A token never lands on or passes its own START again",
+    for phrase in ("56 pips from START", "for START 0 that is square 50",
+                   "never lands on the square just before its START",
+                   "From the square two before your START, the next pip enters YOUR home path",
+                   "A token never lands on or passes its own START again",
                    "any roll that does not pass HOME_END", "Capturing or finishing a token does not",
                    "(after a 6 you roll again)", "a roll-off chose who started",
                    "Your own tokens may share safe squares, home path squares and HOME_END",

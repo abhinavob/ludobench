@@ -99,7 +99,7 @@ class GameTheoryMultiplayerAgent(BaseAgent):
                     if pos in rules.SAFE_SQUARES:
                         safe_count += 1
                 elif pos >= hs:
-                    prog += rules.BOARD_SIZE + (pos - hs + 1)
+                    prog += rules.track_length(self._original) + (pos - hs + 1)
 
             # Same weighted terms as 2-player evaluator, per player.
             score = 0.0

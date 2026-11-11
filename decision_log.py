@@ -44,7 +44,7 @@ DEFINITIONS = {
     "positions": "-1 base, 0-51 main track, >=52 home path (player-specific); "
                  "see engine.home_ranges",
     "progress": "per token: 0 in base, otherwise 1 + pips from its start square "
-                "along its route (finished: 58; with original_rules 59, and 53 is "
+                "along its route (finished: 57; with original_rules 59, and 53 is "
                 "unreachable); summed over a player's tokens",
     "piece_counts": "home_path excludes finished tokens",
     "action_class": "one label per move, first match of: bring_out, home_finish, "

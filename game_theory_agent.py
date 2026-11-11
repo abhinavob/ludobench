@@ -90,7 +90,7 @@ class GameTheoryAgent(BaseAgent):
                     if pos in rules.SAFE_SQUARES:
                         safe_count += 1
                 elif pos >= hs:
-                    total += rules.BOARD_SIZE + (pos - hs + 1)
+                    total += rules.track_length(self._original) + (pos - hs + 1)
             return total, base, finished, safe_count
 
         me_prog, me_base, me_fin, me_safe = progress(me)

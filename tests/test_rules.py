@@ -72,35 +72,41 @@ def test_leaving_base_onto_opponent_on_start_square_does_not_capture():
 # ---------- movement on the track ----------
 
 @pytest.mark.parametrize("player", range(4))
-@pytest.mark.parametrize("rel", range(46, 52))
+@pytest.mark.parametrize("rel", range(45, 51))
 @pytest.mark.parametrize("dice", range(1, 7))
 def test_home_entry_uses_every_pip(player, rel, dice):
     step = rel + dice
-    expected = square(player, step) if step <= 51 else cell(player, step - 51)
+    expected = square(player, step) if step <= 50 else cell(player, step - 50)
     assert R.destination(player, square(player, rel), dice) == expected
 
 
 def test_one_from_last_track_square_enters_first_home_cell():
     for p in range(4):
-        assert R.destination(p, square(p, 51), 1) == cell(p, 1)
+        assert R.destination(p, square(p, 50), 1) == cell(p, 1)
 
 
 def test_six_from_last_track_square_finishes():
     for p in range(4):
-        assert R.destination(p, square(p, 51), 6) == R.home_range(p)[1]
+        assert R.destination(p, square(p, 50), 6) == R.home_range(p)[1]
 
 
-def test_piece_never_returns_to_its_start_square():
+def test_piece_never_lands_on_the_two_squares_behind_its_start():
     for p in range(4):
-        for rel in range(1, 52):
+        for rel in range(1, 51):
             for dice in range(1, 7):
-                assert R.destination(p, square(p, rel), dice) != R.START_POSITIONS[p]
+                assert R.destination(p, square(p, rel), dice) not in (
+                    square(p, 51), R.START_POSITIONS[p])
 
 
-def test_route_from_start_to_home_end_is_57_pips():
+def test_other_players_pass_through_a_players_relative_51():
+    assert R.destination(2, 50, 1) == 51 and R.destination(2, 49, 4) == 1
+    assert R.captures(board(p0=[-1] * 4, p2=[51, -1, -1, -1]), 0, 51) == [(2, 0)]
+
+
+def test_route_from_start_to_home_end_is_56_pips():
     for p in range(4):
         assert R.route_index(p, R.START_POSITIONS[p]) == 0
-        assert R.route_index(p, R.home_range(p)[1]) == 57
+        assert R.route_index(p, R.home_range(p)[1]) == 56
 
 
 @pytest.mark.parametrize("player", [1, 2, 3])
@@ -111,21 +117,22 @@ def test_wrap_around_from_51_to_0(player):
     assert R.route_index(player, 3) == rel + 4
 
 
-def test_player_zero_does_not_wrap():
-    assert R.destination(0, 51, 1) == cell(0, 1)
+def test_player_zero_turns_home_at_square_50():
+    assert R.destination(0, 50, 1) == cell(0, 1)
+    assert R.destination(0, 49, 1) == 50
 
 
 def test_track_piece_can_always_use_its_roll():
     for p in range(4):
-        for rel in range(52):
+        for rel in range(51):
             for dice in range(1, 7):
                 assert R.destination(p, square(p, rel), dice) is not None
 
 
 def test_route_index_increases_along_the_route():
     for p in range(4):
-        cells = [square(p, r) for r in range(52)] + [cell(p, k) for k in range(1, 7)]
-        assert [R.route_index(p, c) for c in cells] == list(range(58))
+        cells = [square(p, r) for r in range(51)] + [cell(p, k) for k in range(1, 7)]
+        assert [R.route_index(p, c) for c in cells] == list(range(57))
 
 
 # ---------- home path ----------
@@ -222,7 +229,7 @@ def test_six_with_no_legal_move():
 
 def test_six_that_wins():
     end = R.home_range(2)[1]
-    tokens = board(p2=[end, end, end, square(2, 51)])
+    tokens = board(p2=[end, end, end, square(2, 50)])
     assert R.legal_moves(tokens, 2, 6) == [3]
     assert R.has_won(R.apply_move(tokens, 2, 3, 6)[0], 2)
 
@@ -269,7 +276,7 @@ def test_every_single_piece_position_matches_reference(original):
                 assert R.destination(p, pos, dice, original) == ref.walk(p, pos, dice, original)
                 assert R.legal_moves(tokens, p, dice, original) == ref.legal(tokens, p, dice, original)
                 checked += 1
-    assert checked == 4 * 59 * 6
+    assert checked == 4 * (59 if original else 58) * 6
 
 
 @pytest.mark.slow
@@ -279,7 +286,7 @@ def test_random_states_match_reference(original):
     moves = 0
     for _ in range(100_000):
         players = ref.seat_sets(rng)
-        tokens = ref.random_state(rng, players)
+        tokens = ref.random_state(rng, players, original)
         p, dice = rng.choice(players), rng.randint(1, 6)
         legal = R.legal_moves(tokens, p, dice, original)
         assert legal == ref.legal(tokens, p, dice, original)
