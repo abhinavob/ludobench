@@ -60,7 +60,8 @@ def test_results_go_to_experiment_and_model_with_a_row_in_cells(cli):
                      "wins": str(int(game["winner"] == 0)),
                      "win_rate": f"{int(game['winner'] == 0):.3f}",
                      "invalid_rate": f"{llm['invalid'] / llm['calls']:.4f}",
-                     "ollama_version": "0.0-test", "commit": rows[0]["commit"]}]
+                     "ollama_version": "0.0-test", "cost_usd": "0.0000",
+                     "commit": rows[0]["commit"]}]
     assert len(rows[0]["commit"].split("-")[0]) == 12
 
 

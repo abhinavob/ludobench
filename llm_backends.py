@@ -7,10 +7,9 @@ so different models can play each other.
 
 A backend is specified as "<provider>:<model>":
     llm:qwen3:8b                      (Ollama's native API; same as ollama_native)
-    ollama:llama3.2
-    ollama:qwen2.5:7b                 (model names may contain colons)
-    ollama_native:qwen3.5:9b          (native /api/chat; needed for think=False)
-    openrouter:qwen/qwen-2.5-7b-instruct
+    ollama_native:qwen3.5:9b          (model names may contain colons)
+    llm:openrouter/openai/gpt-6-luna  (OpenRouter; same as openrouter:openai/gpt-6-luna)
+    llm:nvidia/moonshotai/kimi-k2.6   (NVIDIA's API catalog; same as nvidia:...)
     dummy                             (offline stub, no API)
 
 llm / ollama_native can also name another machine's Ollama server:
@@ -18,14 +17,19 @@ llm / ollama_native can also name another machine's Ollama server:
     ollama_native://<host>:11434/qwen2.5vl:3b
     ollama_native://<host>/qwen2.5vl:3b        (port defaults to 11434)
 
+OpenRouter and NVIDIA share one backend for OpenAI-compatible APIs. Their keys
+are read from the environment (OPENROUTER_API_KEY, NVIDIA_API_KEY) and are never
+printed or logged.
+
 Usage:
     from llm_backends import make_llm
-    fn = make_llm("ollama:llama3.2")
+    fn = make_llm("llm:qwen3:8b")
     reply = fn("some prompt")
 """
 
 import json
 import os
+import sys
 import time
 
 DEFAULT_SYSTEM_PROMPT = "You are an expert Ludo player."
@@ -35,20 +39,26 @@ OLLAMA_PORT = 11434
 # 127.0.0.1, not "localhost": on Windows "localhost" tries IPv6 ::1 first, and
 # Ollama listens on IPv4 only by default, so each new connection waited ~2s.
 PROVIDER_DEFAULTS = {
-    "ollama": {
-        "base_url": f"http://127.0.0.1:{OLLAMA_PORT}/v1",
-        "api_key": "ollama",          # Ollama ignores it but the client requires one
-    },
     "ollama_native": {
         "base_url": f"http://127.0.0.1:{OLLAMA_PORT}",  # native /api/chat, honours "think"
     },
+    # OpenAI-compatible APIs. requests_per_minute paces requests to one API (an
+    # account); NVIDIA allows about 40 per minute.
     "openrouter": {
         "base_url": "https://openrouter.ai/api/v1",
-        "api_key": None,              # taken from OPENAI_API_KEY / OPENROUTER_API_KEY
+        "key_env": "OPENROUTER_API_KEY",
+        "requests_per_minute": None,
+    },
+    "nvidia": {
+        "base_url": "https://integrate.api.nvidia.com/v1",
+        "key_env": "NVIDIA_API_KEY",
+        "requests_per_minute": 40,
     },
 }
+API_PROVIDERS = ("openrouter", "nvidia")
 
 DEFAULT_TIMEOUT = 600      # seconds per request
+API_RETRIES = 8            # rate-limit and server errors, with backoff up to 2 minutes
 
 # Output-token ceilings (Ollama's num_predict; thinking counts towards it).
 ANSWER_CEILING = 1024
@@ -65,6 +75,18 @@ THINKING_CEILING = 8192    # provisional; set from analysis/measure_thinking.py
 #   tokens and no thinking, true about 330 tokens with 836 characters of
 #   thinking; "high" acted as true. Without a "think" field it thinks.
 THINKING_NOT_REPORTED = {"deepseek-r1": [True], "granite4.2": [False, True]}
+
+# How to turn reasoning off on NVIDIA's API, which does not report it, by model:
+# (extra request fields, whether the model still reasons). Taken from each
+# model's request schema on docs.api.nvidia.com/nim/reference (2026-11-11), not
+# yet checked with a call. A model not listed is sent no reasoning field, and
+# the reasoning tokens it reports are logged.
+NVIDIA_REASONING = {
+    "mistralai/mistral-large-4-1t-a52b": ({"reasoning_effort": "none"}, False),
+    "moonshotai/kimi-k2.6": ({"chat_template_kwargs": {"thinking": False}}, False),
+}
+# OpenRouter's reasoning efforts, lowest first.
+EFFORTS = ("none", "minimal", "low", "medium", "high", "xhigh", "max")
 
 # Ollama writes a structured reply's fields in the schema's order, and that
 # order changes what the model answers. With "piece" first and thinking off,
@@ -107,7 +129,11 @@ def parse_spec(spec):
 
     provider, rest = spec.split(":", 1)       # split once: model may contain ':'
     if provider == "llm":
-        provider = "ollama_native"
+        provider, sep, model = rest.partition("/")
+        if sep and provider in API_PROVIDERS:     # llm:openrouter/<model>
+            rest = model
+        else:
+            provider = "ollama_native"
     if provider not in PROVIDER_DEFAULTS:
         raise ValueError(f"unknown provider {provider!r}; "
                          f"expected one of {sorted(PROVIDER_DEFAULTS)} or 'dummy'")
@@ -157,6 +183,43 @@ def _ollama(base_url, path, body=None, timeout=10):
                                  headers={"Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return json.loads(resp.read().decode("utf-8"))
+
+
+def api_model_info(provider, model):
+    """
+    What an API's public model list (no key needed) says about a model: whether
+    it supports a structured-output schema and temperature, how it reasons, and
+    its price per token (OpenRouter). NVIDIA reports none of these, so they are
+    None there except the reasoning table above. Raises ValueError if the API
+    does not list the model.
+    """
+    listing = _ollama(PROVIDER_DEFAULTS[provider]["base_url"], "/models", timeout=30)["data"]
+    entry = next((m for m in listing if m["id"] == model), None)
+    if entry is None:
+        raise ValueError(f"{provider} does not list a model {model!r}")
+    if provider == "nvidia":
+        return {"structured_outputs": None, "temperature": None, "pricing": None,
+                "reasoning": NVIDIA_REASONING.get(model)}
+    params = entry.get("supported_parameters", [])
+    return {"structured_outputs": "structured_outputs" in params,
+            "temperature": "temperature" in params, "pricing": entry.get("pricing"),
+            "reasoning": entry.get("reasoning")}
+
+
+def api_reasoning(provider, info):
+    """
+    (extra request fields that turn reasoning off, or keep it lowest where it
+    cannot be off; whether the model reasons, None if the API does not say).
+    """
+    reasoning = info["reasoning"]
+    if provider == "nvidia":
+        return reasoning or ({}, None)
+    if reasoning is None:
+        return {}, False
+    if not reasoning.get("mandatory"):
+        return {"reasoning": {"enabled": False}}, False
+    lowest = min(reasoning["supported_efforts"], key=EFFORTS.index)
+    return {"reasoning": {"effort": lowest}}, True
 
 
 def model_info(base_url, model):
@@ -255,7 +318,9 @@ def make_llm(spec,
              timeout=DEFAULT_TIMEOUT,
              structured=False,
              schema_order=DEFAULT_SCHEMA_ORDER,
-             reason_max_chars=None):
+             reason_max_chars=None,
+             extra_body=None,
+             requests_per_minute=None):
     """
     Build a callable prompt -> response string for the given "provider:model" spec.
 
@@ -265,19 +330,20 @@ def make_llm(spec,
     model think, and system_prompt=None to match what the paper actually claims.
 
     think=False disables a thinking model's reasoning phase, so the model answers
-    directly. It only takes effect with the ollama_native provider: Ollama's /v1
-    endpoint (provider "ollama") ignores it. Leave it None to use the model's
-    default.
+    directly (ollama_native only). Leave it None to use the model's default.
+    For an API, extra_body holds the fields that set its reasoning (see
+    api_reasoning), temperature=None leaves temperature out for models that do
+    not take it, and requests_per_minute overrides the API's pace.
 
     timeout is the per-request limit in seconds. A request the server accepted
     but did not answer in time returns "" (an invalid reply) without retrying.
     Failing to connect at all, e.g. a refused connection or an unreachable host,
     is retried and then raises, which stops the run.
 
-    structured=True (ollama_native only) constrains the reply to move_schema()
-    via Ollama's "format" parameter, with its two fields in schema_order
-    ("reason_first" or "piece_first") and, if reason_max_chars is set, the reason
-    limited to that many characters. The reply is returned as received;
+    structured=True constrains the reply to move_schema(), with its two fields in
+    schema_order ("reason_first" or "piece_first") and, if reason_max_chars is
+    set, the reason limited to that many characters: Ollama's "format", or an
+    API's json_schema response format. The reply is returned as received;
     LLMAgent reads the JSON.
 
     After each call, the returned function carries:
@@ -290,8 +356,13 @@ def make_llm(spec,
                           completion (output) tokens include any thinking
       last_thinking_tokens
                           ollama_native: tokens streamed as thinking (one
-                          chunk per token); None for other providers
-    and, fixed: spec, base_url.
+                          chunk per token); an API: the reasoning tokens it
+                          reported, or None
+      last_cost           US dollars the call cost (OpenRouter's figure; 0 on
+                          NVIDIA and Ollama)
+      last_served_by      the upstream provider OpenRouter routed to, or None
+      last_retries        rate-limit and server errors retried for this call
+    and, fixed: spec, provider, base_url.
     """
     if spec == "dummy":
         from dummy_llm import dummy_llm
@@ -306,91 +377,140 @@ def make_llm(spec,
                          f"got {schema_order!r}")
     if reason_max_chars is not None and (not structured or reason_max_chars < 1):
         raise ValueError("reason_max_chars needs structured=True and a positive value")
-    if structured and provider != "ollama_native":
-        raise ValueError(f"structured output is only supported for ollama_native, "
-                         f"got {spec!r}")
-
+    schema = move_schema(schema_order, reason_max_chars) if structured else None
     if provider == "ollama_native":
         return _make_ollama_native(spec, model, base_url, max_tokens, stop,
                                    temperature, system_prompt, think, retries,
-                                   retry_wait, timeout,
-                                   move_schema(schema_order, reason_max_chars)
-                                   if structured else None)
+                                   retry_wait, timeout, schema)
+    if think is not None:
+        raise ValueError(f"think is only for Ollama; {spec} takes extra_body")
+    return _make_api(spec, provider, model, base_url, max_tokens, stop, temperature,
+                     system_prompt, extra_body or {}, retries, retry_wait, timeout, schema,
+                     requests_per_minute or PROVIDER_DEFAULTS[provider]["requests_per_minute"])
 
-    cfg = PROVIDER_DEFAULTS[provider]
-    import httpx
-    from openai import OpenAI, APITimeoutError
 
-    api_key = cfg["api_key"] or os.environ.get("OPENROUTER_API_KEY") \
-        or os.environ.get("OPENAI_API_KEY")
-    # max_retries=0: the client would otherwise retry timeouts on its own.
-    # Retries are handled in call() below.
-    client = OpenAI(base_url=base_url, api_key=api_key, timeout=timeout,
-                    max_retries=0)
+_next_request = {}          # base_url -> earliest time.monotonic() of its next request
+
+
+def _pace(base_url, requests_per_minute):
+    """Wait until the next request to this API is due, then book the one after."""
+    if not requests_per_minute:
+        return
+    now = time.monotonic()
+    due = _next_request.get(base_url, now)
+    if due > now:
+        time.sleep(due - now)
+    _next_request[base_url] = max(due, now) + 60 / requests_per_minute
+
+
+RETRY_STATUS = {408, 429, 500, 502, 503, 504}      # rate limits and server errors
+
+
+class _APIError(Exception):
+    """An error status from an API, with its message and any Retry-After seconds."""
+
+    def __init__(self, code, detail, retry_after=None):
+        super().__init__(f"HTTP {code}: {detail.strip()[:300]}")
+        self.code, self.retry_after = code, retry_after
+
+
+def _make_api(spec, provider, model, base_url, max_tokens, stop, temperature,
+              system_prompt, extra_body, retries, retry_wait, timeout, schema,
+              requests_per_minute):
+    """
+    Call an OpenAI-compatible /chat/completions API (OpenRouter, NVIDIA). The
+    schema is sent as a json_schema response format; on OpenRouter only
+    providers that support every parameter sent, the schema included, are used.
+    Rate-limit and server errors are retried with backoff, printed, and counted
+    in last_retries, not as invalid replies; any other error stops the run.
+    """
+    import urllib.error
+    import urllib.request
+
+    key_env = PROVIDER_DEFAULTS[provider]["key_env"]
+    url = base_url + "/chat/completions"
 
     def call(prompt):
         messages = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
-
-        kwargs = {"model": model, "messages": messages, "temperature": temperature}
+        payload = {"model": model, "messages": messages, **extra_body}
+        if temperature is not None:
+            payload["temperature"] = temperature
         if max_tokens is not None:
-            kwargs["max_tokens"] = max_tokens
+            payload["max_tokens"] = max_tokens
         if stop:
-            kwargs["stop"] = list(stop)
-        if think is not None:
-            # Ollama's /v1 endpoint ignores this (use ollama_native instead);
-            # other providers ignore unknown extra fields.
-            kwargs["extra_body"] = {"think": think}
+            payload["stop"] = list(stop)
+        if schema is not None:
+            payload["response_format"] = {"type": "json_schema", "json_schema": {
+                "name": "move", "strict": True,
+                "schema": {**schema, "additionalProperties": False}}}
+        if provider == "openrouter":
+            payload["provider"] = {"require_parameters": True}
+            payload["usage"] = {"include": True}
+        key = os.environ.get(key_env)
+        if not key:
+            raise RuntimeError(f"{spec}: set {key_env}")
+        req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers={
+            "Content-Type": "application/json", "Authorization": f"Bearer {key}"})
 
-        call.last_finish_reason = None
+        call.last_finish_reason = call.last_served_by = None
         call.last_content = ""
         call.last_prompt_tokens = call.last_completion_tokens = None
-        call.last_thinking_tokens = None
-        last_err = None
+        call.last_thinking_tokens = call.last_cost = None
         for attempt in range(retries):
+            call.last_retries = attempt
+            _pace(base_url, requests_per_minute)
+            wait = min(retry_wait * 2 ** attempt, 120)
             try:
-                resp = client.chat.completions.create(**kwargs)
-                choice = resp.choices[0]
-                call.last_finish_reason = choice.finish_reason
-                if resp.usage is not None:
-                    call.last_prompt_tokens = resp.usage.prompt_tokens
-                    call.last_completion_tokens = resp.usage.completion_tokens
-                msg = choice.message
-                # Thinking models put their chain of thought in a separate field.
-                # Keep it for display only: it is never the answer, so an empty
-                # content is returned as "" and recorded as an invalid reply.
-                call.last_reasoning = ""
-                for field in ("reasoning", "reasoning_content", "thinking"):
-                    alt = getattr(msg, field, None)
-                    if alt:
-                        call.last_reasoning = str(alt).strip()
-                        break
-                call.last_content = (msg.content or "").strip()
+                try:
+                    with urllib.request.urlopen(req, timeout=timeout) as resp:
+                        data = json.loads(resp.read().decode("utf-8"))
+                except urllib.error.HTTPError as e:
+                    after = e.headers.get("Retry-After", "")
+                    raise _APIError(e.code, e.read().decode("utf-8", errors="replace"),
+                                    int(after) if after.isdigit() else None) from None
+                if "error" in data:                   # OpenRouter: an upstream failure
+                    raise _APIError(int(data["error"].get("code") or 502),
+                                    json.dumps(data["error"]))
+            except _APIError as e:
+                if e.code not in RETRY_STATUS:
+                    raise RuntimeError(f"{spec}: {e}") from None
+                wait = wait if e.retry_after is None else e.retry_after
+                problem = str(e)
+            except TimeoutError:
+                return _timed_out(call)               # connected, but no answer in time
+            except (urllib.error.URLError, ConnectionError) as e:
+                problem = str(getattr(e, "reason", e))
+            else:
+                choice = data["choices"][0]
+                msg = choice["message"]
+                usage = data.get("usage") or {}
+                call.last_finish_reason = choice.get("finish_reason")
+                call.last_prompt_tokens = usage.get("prompt_tokens")
+                call.last_completion_tokens = usage.get("completion_tokens")
+                call.last_thinking_tokens = (usage.get("completion_tokens_details")
+                                             or {}).get("reasoning_tokens")
+                call.last_cost = usage.get("cost", 0) if provider == "openrouter" else 0
+                call.last_served_by = data.get("provider")
+                call.last_reasoning = (msg.get("reasoning") or msg.get("reasoning_content")
+                                       or "").strip()
+                call.last_content = (msg.get("content") or "").strip()
                 return call.last_content
-            except APITimeoutError as e:
-                # Only a slow answer counts against the model; failing to
-                # connect is a network problem, retried below like any other.
-                if not isinstance(e.__cause__, httpx.ConnectTimeout):
-                    return _timed_out(call)
-                last_err = e
-                if attempt < retries - 1:
-                    time.sleep(retry_wait * (attempt + 1))
-            except Exception as e:                    # rate limits, transient 5xx
-                last_err = e
-                if attempt < retries - 1:
-                    time.sleep(retry_wait * (attempt + 1))
-        raise RuntimeError(f"{spec} failed after {retries} attempts "
-                           f"at {base_url}: {last_err}")
+            if attempt < retries - 1:
+                print(f"  {spec}: {problem}; retry {attempt + 1}/{retries - 1} in {wait}s",
+                      file=sys.stderr, flush=True)
+                time.sleep(wait)
+        raise RuntimeError(f"{spec} failed after {retries} attempts: {problem}")
 
-    call.spec = spec
-    call.base_url = base_url
+    call.spec, call.provider, call.base_url = spec, provider, base_url
     call.last_reasoning = ""
-    call.last_finish_reason = None
+    call.last_finish_reason = call.last_served_by = None
     call.last_content = ""
     call.last_prompt_tokens = call.last_completion_tokens = None
-    call.last_thinking_tokens = None
+    call.last_thinking_tokens = call.last_cost = None
+    call.last_retries = 0
     return call
 
 
@@ -435,6 +555,7 @@ def _make_ollama_native(spec, model, base_url, max_tokens, stop, temperature,
         call.last_thinking_tokens = None
         last_err = None
         for attempt in range(retries):
+            call.last_retries = attempt
             try:
                 deadline = time.monotonic() + timeout
                 thinking, content, done = [], [], {}
@@ -479,11 +600,11 @@ def _make_ollama_native(spec, model, base_url, max_tokens, stop, temperature,
         raise RuntimeError(f"{spec} failed after {attempt + 1} attempt(s) "
                            f"at {base_url}: {last_err}")
 
-    call.spec = spec
-    call.base_url = base_url
+    call.spec, call.provider, call.base_url = spec, "ollama_native", base_url
     call.last_reasoning = ""
-    call.last_finish_reason = None
+    call.last_finish_reason = call.last_served_by = None
     call.last_content = ""
     call.last_prompt_tokens = call.last_completion_tokens = None
     call.last_thinking_tokens = None
+    call.last_cost, call.last_retries = 0, 0
     return call

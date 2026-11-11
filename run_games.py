@@ -10,7 +10,11 @@ model thinks), legal moves shown in piece order, no move outcomes, no history.
 Players are listed without seat numbers; seats follow the rules (two players
 sit in seats 0 and 2). A player is llm:MODEL (Ollama on this machine),
 llm://HOST[:PORT]/MODEL (Ollama on another machine, started there with
-OLLAMA_HOST=0.0.0.0), random, heuristic, first, gt[:DEPTH], human or dummy.
+OLLAMA_HOST=0.0.0.0), llm:openrouter/MODEL or llm:nvidia/MODEL (an API, key in
+OPENROUTER_API_KEY or NVIDIA_API_KEY), random, heuristic, first, gt[:DEPTH],
+human or dummy. API models get the same prompt and reply settings, with
+reasoning off where the API allows (the thinking ceiling where it cannot be);
+--requests-per-minute N paces each API.
 
 Switches, each off by default:
     --hide-legal-moves    leave the legal-move list out of the prompt
@@ -44,9 +48,10 @@ from agents import BaseAgent, RandomAgent, HeuristicAgent
 from llm_agent import LLMAgent
 from evaluation import evaluate
 from llm_backends import (make_llm, parse_spec, check_ollama, model_info, reason_first,
-                          thinking_setting, DEFAULT_SYSTEM_PROMPT, DEFAULT_TIMEOUT,
-                          DEFAULT_SCHEMA_ORDER, REASON_MAX_CHARS, ANSWER_CEILING,
-                          THINKING_CEILING)
+                          thinking_setting, api_model_info, api_reasoning,
+                          DEFAULT_SYSTEM_PROMPT, DEFAULT_TIMEOUT, DEFAULT_SCHEMA_ORDER,
+                          REASON_MAX_CHARS, ANSWER_CEILING, THINKING_CEILING,
+                          API_PROVIDERS, API_RETRIES, PROVIDER_DEFAULTS)
 from board_render import render_board, describe_move, group_moves
 from decision_log import (RunLog, GameLog, CONTEXT_MODE, git_state, short_hash,
                           move_effects)
@@ -168,6 +173,8 @@ class TrackedLLMAgent(LLMAgent):
         self.prompt_tokens = 0
         self.completion_tokens = 0
         self.latency_ms = 0.0
+        self.cost_usd = 0.0
+        self.retries = 0
 
     def _parsed_index(self, text, legal_moves, original_rules):
         """
@@ -222,7 +229,11 @@ class TrackedLLMAgent(LLMAgent):
                 cause = "illegal"
         p_tok = getattr(call, "last_prompt_tokens", None)
         c_tok = getattr(call, "last_completion_tokens", None)
+        cost = getattr(call, "last_cost", None)
+        retries = getattr(call, "last_retries", 0)
         self.last_decision = {
+            "provider": getattr(call, "provider", None),
+            "served_by": getattr(call, "last_served_by", None),
             "raw_reply": raw,
             "parsed_index": parsed,
             "parsed_reason": env.last_llm_reason or None,
@@ -236,6 +247,8 @@ class TrackedLLMAgent(LLMAgent):
             "fallback_cause": cause,
             "prompt_tokens": p_tok,
             "completion_tokens": c_tok,
+            "cost_usd": cost,
+            "retries": retries,
             "latency_ms": call.last_latency_ms,
             "prompt_hash": short_hash(call.last_prompt),
         }
@@ -244,6 +257,8 @@ class TrackedLLMAgent(LLMAgent):
         self.prompt_tokens += p_tok or 0
         self.completion_tokens += c_tok or 0
         self.latency_ms += call.last_latency_ms or 0
+        self.cost_usd += cost or 0
+        self.retries += retries
         _bump(self.finish_reasons, why or "unknown")
         if fallback:
             self.invalid += 1
@@ -259,6 +274,7 @@ class TrackedLLMAgent(LLMAgent):
                 "prompt_tokens": self.prompt_tokens,
                 "completion_tokens": self.completion_tokens,
                 "total_tokens": self.prompt_tokens + self.completion_tokens,
+                "cost_usd": self.cost_usd, "retries": self.retries,
                 "latency_ms": round(self.latency_ms, 1)}
 
 
@@ -433,9 +449,26 @@ RELEASED = {"uncapped": False, "max_tokens": None, "no_think": False,
             "structured": False, "schema_order": None, "reason_max_chars": None}
 
 
-def llm_setup(player, original_rules, think, effort, released):
+def llm_setup(player, original_rules, think, effort, released, requests_per_minute=None):
     """make_llm arguments for an LLM player, and what run.json records about it."""
     provider, model, host = player["provider"], player["model"], player["host"]
+    if provider in API_PROVIDERS:
+        if original_rules or think or effort:
+            raise ValueError(f"{player['model_spec']}: --original-rules, --think and "
+                             f"--effort are for Ollama models")
+        info = api_model_info(provider, model)
+        if info["structured_outputs"] is False:
+            raise ValueError(f"{provider} lists no structured-output support for {model}")
+        extra, thinks = api_reasoning(provider, info)
+        temperature = None if info["temperature"] is False else 0
+        rpm = requests_per_minute or PROVIDER_DEFAULTS[provider]["requests_per_minute"]
+        ceiling = THINKING_CEILING if thinks else ANSWER_CEILING
+        record = {"reasoning": extra, "thinks": thinks, "ceiling": ceiling,
+                  "temperature": temperature, "requests_per_minute": rpm}
+        return dict(max_tokens=ceiling, stop=None, structured=True,
+                    schema_order=DEFAULT_SCHEMA_ORDER, reason_max_chars=REASON_MAX_CHARS,
+                    extra_body=extra, temperature=temperature, requests_per_minute=rpm,
+                    retries=API_RETRIES), record
     info = model_info(host.removesuffix("/v1"), model) if "ollama" in provider else {}
     record = {k: info.get(k) for k in ("digest", "quantization", "parameter_size")}
     if original_rules:
@@ -493,21 +526,26 @@ def player_info(specs, seats):
 
 
 def folder_name(spec):
-    """A player's name in results/: the model of an LLM, else the spec."""
-    name = parse_spec(spec)[1] if is_llm_spec(spec) else spec
+    """A player's name in results/: the model of an LLM (after its API, if any), else the spec."""
+    name = spec
+    if is_llm_spec(spec):
+        provider, name, _ = parse_spec(spec)
+        if provider in API_PROVIDERS:
+            name = f"{provider}-{name}"
     return name.replace(":", "-").replace("/", "-")
 
 
 RESULTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
 CELL_FIELDS = ["experiment", "model", "opponent", "settings", "games_finished", "wins",
-               "win_rate", "invalid_rate", "ollama_version", "commit"]
+               "win_rate", "invalid_rate", "ollama_version", "cost_usd", "commit"]
 
 
 def cell_results(records, pid, ollama_versions):
     """
     The results columns of a run's row in cells.csv for player pid (the run's
     model): wins, win rate and invalid-reply rate over its finished games, and
-    the Ollama versions that served it. Empty where they do not apply.
+    the Ollama versions that served it. Empty where they do not apply. The
+    run's total cost comes from run.json.
     """
     n = len(records)
     wins = sum(r["winner"] == pid for r in records)
@@ -570,7 +608,7 @@ def resume(out_dir, settings, players):
 def run_games(specs, games, seed0, out_dir, include_legal_moves=True, legal_order="ascending",
               move_outcomes=False, history=0, think=False, effort=None, original_rules=False,
               released=None, max_steps=1000, watch=False, delay=0.0, ollama_versions=None,
-              cell=None):
+              cell=None, requests_per_minute=None):
     """
     Play one run into out_dir. With original_rules the reply setup is RELEASED,
     updated by `released`. `cell` (experiment, model, opponent, settings) adds
@@ -582,7 +620,8 @@ def run_games(specs, games, seed0, out_dir, include_legal_moves=True, legal_orde
     llm_kwargs = {}
     for pid, player in players.items():
         if player["provider"]:
-            llm_kwargs[pid], record = llm_setup(player, original_rules, think, effort, released)
+            llm_kwargs[pid], record = llm_setup(player, original_rules, think, effort, released,
+                                                requests_per_minute)
             player.update(record)
         elif player["model_spec"] == "dummy":
             llm_kwargs[pid] = {"structured": released["structured"] or not original_rules}
@@ -721,6 +760,7 @@ def run_games(specs, games, seed0, out_dir, include_legal_moves=True, legal_orde
                       key=lambda p: players[p]["seat_position"])
             update_cells(os.path.join(os.path.dirname(os.path.dirname(out_dir)), "cells.csv"),
                          dict(cell, **cell_results(records, pid, run.meta["ollama_versions"]),
+                              cost_usd=f"{run.meta['cost_usd']:.4f}",
                               commit=(git["commit"] or "")[:12] + ("-dirty" if git["dirty"] else "")))
 
         fb, calls = rec["llm_fallbacks"], rec["llm_calls"]
@@ -812,6 +852,9 @@ def main():
                          "models that can switch it off)")
     ap.add_argument("--effort", choices=["low", "medium", "high"],
                     help="thinking effort level, for models whose backend takes levels")
+    ap.add_argument("--requests-per-minute", type=float, metavar="N",
+                    help="pace requests to each API to N per minute (default: NVIDIA 40, "
+                         "OpenRouter unpaced)")
     ap.add_argument("--original-rules", action="store_true",
                     help="the released LudoBench rules, prompt and reply format (60 tokens, "
                          "'<int> | <reason>'), to reproduce the original paper")
@@ -841,14 +884,22 @@ def main():
         resolved = {pid: parse_spec(s) for pid, s in seat_specs.items() if is_llm_spec(s)}
     except ValueError as e:
         ap.error(str(e))
-    other = [seat_specs[pid] for pid, r in resolved.items() if r[0] != "ollama_native"]
+    other = [seat_specs[pid] for pid, r in resolved.items()
+             if r[0] not in ("ollama_native", *API_PROVIDERS)]
     if other:
-        ap.error(f"LLM players must be served by Ollama (llm:MODEL); not: {', '.join(other)}")
+        ap.error(f"LLM players are llm:MODEL (Ollama), llm:openrouter/MODEL or "
+                 f"llm:nvidia/MODEL; not: {', '.join(other)}")
+    for pid, (provider, model, base_url) in resolved.items():
+        if provider in API_PROVIDERS and not os.environ.get(PROVIDER_DEFAULTS[provider]["key_env"]):
+            ap.error(f"{seat_specs[pid]} needs {PROVIDER_DEFAULTS[provider]['key_env']} set")
 
     # Check every Ollama server answers before any game starts, so a partner's
     # laptop that is off or firewalled fails now with its host and port named.
     ollama_versions = {}
     for pid, (provider, model, base_url) in resolved.items():
+        if provider in API_PROVIDERS:
+            print(f"P{pid} {model} -> {base_url}")
+            continue
         try:
             ollama_versions[base_url] = check_ollama(base_url)
         except RuntimeError as e:
@@ -878,7 +929,7 @@ def main():
             move_outcomes=args.outcomes, history=args.history, think=args.think,
             effort=args.effort, original_rules=args.original_rules,
             max_steps=args.max_steps, watch=args.watch, delay=args.delay,
-            ollama_versions=ollama_versions,
+            ollama_versions=ollama_versions, requests_per_minute=args.requests_per_minute,
             cell={"experiment": args.experiment, "model": model, "opponent": opponent,
                   "settings": " ".join(f"--{x}" for x in switches) or "standard"})
     except ValueError as e:                          # e.g. a thinking switch the model cannot take

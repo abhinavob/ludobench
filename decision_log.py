@@ -69,7 +69,14 @@ DEFINITIONS = {
                     "null for any other reply",
     "completion_tokens": "output tokens the server reported, thinking included",
     "thinking_tokens": "tokens the model streamed as thinking (Ollama native, one "
-                       "chunk per token); null if not counted",
+                       "chunk per token), or the reasoning tokens an API reported; "
+                       "null if not counted",
+    "provider": "who served the model: ollama_native, openrouter or nvidia",
+    "served_by": "the upstream provider OpenRouter routed the request to",
+    "cost_usd": "US dollars the call cost: OpenRouter's figure, 0 on NVIDIA and "
+                "Ollama; run.json's cost_usd is the run's total",
+    "retries": "rate-limit and server errors retried before the reply; they do "
+               "not make the reply invalid",
     "hit_ceiling": "the reply stopped at the output-token ceiling (finish_reason "
                    "length); a reply cut off there is invalid",
     "latency_ms": "wall-clock time of the model call, the response time",
@@ -247,6 +254,7 @@ class RunLog:
                                 for p in env.player_ids},
             },
             "games": {"attempted": 0, "completed": 0, "errored": 0},
+            "cost_usd": 0.0,
             "definitions": DEFINITIONS,
         }
         self.write_meta()
@@ -280,6 +288,8 @@ class RunLog:
         self._games.flush()
         key = "errored" if rec["termination_reason"] == "error" else "completed"
         self.meta["games"][key] += 1
+        self.meta["cost_usd"] += sum((p["llm"] or {}).get("cost_usd", 0)
+                                     for p in rec["per_player"].values())
         self.write_meta()
 
     def close(self):
@@ -382,6 +392,7 @@ class GameLog:
             "reasoning_text": None, "finish_reason": None, "was_fallback": None,
             "fallback_cause": None, "prompt_tokens": None, "completion_tokens": None,
             "reason_chars": None, "reason_first": None, "thinking_tokens": None, "hit_ceiling": None,
+            "provider": None, "served_by": None, "cost_usd": None, "retries": None,
             "latency_ms": None, "prompt_hash": None}
 
     def _record(self, before):
