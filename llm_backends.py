@@ -63,6 +63,10 @@ API_RETRIES = 8            # rate-limit and server errors, with backoff up to 2 
 # Output-token ceilings (Ollama's num_predict; thinking counts towards it).
 ANSWER_CEILING = 1024
 THINKING_CEILING = 8192    # provisional; set from analysis/measure_thinking.py
+# Ollama context windows (num_ctx), sent with every request so a server default
+# cannot change them; a thinking reply needs room for its ceiling.
+ANSWER_CONTEXT = 8192
+THINKING_CONTEXT = 16384
 
 # Thinking settings Ollama does not report, by model name without its tag. For
 # these models /api/show lists "thinking" among the capabilities but gives no
@@ -313,6 +317,7 @@ def make_llm(spec,
              temperature=0,
              system_prompt=DEFAULT_SYSTEM_PROMPT,
              think=None,
+             num_ctx=None,
              retries=3,
              retry_wait=5,
              timeout=DEFAULT_TIMEOUT,
@@ -331,6 +336,8 @@ def make_llm(spec,
 
     think=False disables a thinking model's reasoning phase, so the model answers
     directly (ollama_native only). Leave it None to use the model's default.
+    num_ctx sets the context window (ollama_native only); None leaves the
+    server's default.
     For an API, extra_body holds the fields that set its reasoning (see
     api_reasoning), temperature=None leaves temperature out for models that do
     not take it, and requests_per_minute overrides the API's pace.
@@ -380,10 +387,10 @@ def make_llm(spec,
     schema = move_schema(schema_order, reason_max_chars) if structured else None
     if provider == "ollama_native":
         return _make_ollama_native(spec, model, base_url, max_tokens, stop,
-                                   temperature, system_prompt, think, retries,
+                                   temperature, system_prompt, think, num_ctx, retries,
                                    retry_wait, timeout, schema)
-    if think is not None:
-        raise ValueError(f"think is only for Ollama; {spec} takes extra_body")
+    if think is not None or num_ctx is not None:
+        raise ValueError(f"think and num_ctx are only for Ollama; {spec} takes extra_body")
     return _make_api(spec, provider, model, base_url, max_tokens, stop, temperature,
                      system_prompt, extra_body or {}, retries, retry_wait, timeout, schema,
                      requests_per_minute or PROVIDER_DEFAULTS[provider]["requests_per_minute"])
@@ -515,7 +522,7 @@ def _make_api(spec, provider, model, base_url, max_tokens, stop, temperature,
 
 
 def _make_ollama_native(spec, model, base_url, max_tokens, stop, temperature,
-                        system_prompt, think, retries, retry_wait, timeout,
+                        system_prompt, think, num_ctx, retries, retry_wait, timeout,
                         schema):
     """
     Call Ollama's native /api/chat. Its /v1 OpenAI-compatible endpoint ignores
@@ -538,6 +545,8 @@ def _make_ollama_native(spec, model, base_url, max_tokens, stop, temperature,
         options = {"temperature": temperature}
         if max_tokens is not None:
             options["num_predict"] = max_tokens
+        if num_ctx is not None:
+            options["num_ctx"] = num_ctx
         if stop:
             options["stop"] = list(stop)
         payload = {"model": model, "messages": messages, "stream": True,

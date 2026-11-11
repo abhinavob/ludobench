@@ -2,8 +2,8 @@
 Run full Ludo games between LLMs, bots or you, and log every decision.
 
 With no switches a run uses the standard setup: our rules, the JSON reply
-(reason first, at most 500 characters), a 1,024-token ceiling (8,192 when the
-model thinks), legal moves shown in piece order, no move outcomes, no history.
+(reason first, at most 500 characters), a 1,024-token ceiling and an Ollama
+context of 8,192 tokens (8,192 and 16,384 when the model thinks), legal moves shown in piece order, no move outcomes, no history.
 
     python run_games.py --players llm:qwen3:8b heuristic
 
@@ -51,6 +51,7 @@ from llm_backends import (make_llm, parse_spec, check_ollama, model_info, reason
                           thinking_setting, api_model_info, api_reasoning,
                           DEFAULT_SYSTEM_PROMPT, DEFAULT_TIMEOUT, DEFAULT_SCHEMA_ORDER,
                           REASON_MAX_CHARS, ANSWER_CEILING, THINKING_CEILING,
+                          ANSWER_CONTEXT, THINKING_CONTEXT,
                           API_PROVIDERS, API_RETRIES, PROVIDER_DEFAULTS)
 from board_render import render_board, describe_move, group_moves
 from decision_log import (RunLog, GameLog, CONTEXT_MODE, git_state, short_hash,
@@ -483,9 +484,11 @@ def llm_setup(player, original_rules, think, effort, released, requests_per_minu
         return kw, record
     think_value, thinks = thinking_setting(model, info, think, effort)
     ceiling = THINKING_CEILING if thinks else ANSWER_CEILING
-    record.update(think=think_value, thinks=thinks, ceiling=ceiling)
-    return dict(max_tokens=ceiling, stop=None, think=think_value, structured=True,
-                schema_order=DEFAULT_SCHEMA_ORDER, reason_max_chars=REASON_MAX_CHARS), record
+    num_ctx = THINKING_CONTEXT if thinks else ANSWER_CONTEXT
+    record.update(think=think_value, thinks=thinks, ceiling=ceiling, num_ctx=num_ctx)
+    return dict(max_tokens=ceiling, num_ctx=num_ctx, stop=None, think=think_value,
+                structured=True, schema_order=DEFAULT_SCHEMA_ORDER,
+                reason_max_chars=REASON_MAX_CHARS), record
 
 
 def build_agent(spec, llm_kwargs, labels, include_legal_moves, robust, history,
@@ -635,7 +638,7 @@ def run_games(specs, games, seed0, out_dir, include_legal_moves=True, legal_orde
                  "structured": True, "schema_order": DEFAULT_SCHEMA_ORDER,
                  "reason_max_chars": REASON_MAX_CHARS}
     # Kept in run.json so a results folder is self-describing. Each LLM player's
-    # model version, thinking setting and output ceiling are under "players".
+    # model version, thinking setting, output ceiling and context are under "players".
     settings = {
         "original_rules": original_rules,
         "seats": seats,
@@ -668,6 +671,8 @@ def run_games(specs, games, seed0, out_dir, include_legal_moves=True, legal_orde
         "effort": effort,
         "ceilings": None if original_rules else {"answer": ANSWER_CEILING,
                                                  "thinking": THINKING_CEILING},
+        "contexts": None if original_rules else {"answer": ANSWER_CONTEXT,
+                                                 "thinking": THINKING_CONTEXT},
         "max_steps": max_steps,
         "temperature": 0,
         "system_prompt": DEFAULT_SYSTEM_PROMPT,

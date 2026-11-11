@@ -102,12 +102,13 @@ def test_thinking_model_missing_from_the_table_is_an_error():
 def test_streamed_reply_counts_thinking_tokens_and_sends_the_settings(ollama):
     host = ollama.split("//")[1]
     call = make_llm(f"ollama_native://{host}/think:1b", max_tokens=8192, stop=None,
-                    think=True, structured=True, reason_max_chars=500)
+                    think=True, num_ctx=16384, structured=True, reason_max_chars=500)
     assert call("prompt") == '{"reason": "capture", "piece": 2}'
     assert call.last_thinking_tokens == 3 and call.last_reasoning == "Piece two captures."
     assert call.last_completion_tokens == 9 and call.last_finish_reason == "stop"
     sent = FakeOllama.last_chat
-    assert sent["stream"] and sent["think"] is True and sent["options"]["num_predict"] == 8192
+    assert sent["stream"] and sent["think"] is True
+    assert sent["options"]["num_predict"] == 8192 and sent["options"]["num_ctx"] == 16384
     assert list(sent["format"]["properties"]) == ["reason", "piece"]
     assert sent["format"]["properties"]["reason"]["maxLength"] == 500
 

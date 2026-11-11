@@ -85,6 +85,7 @@ def test_standard_setup_needs_no_switches(cli):
     assert s["schema_order"] == "reason_first" and s["legal_order"] == "ascending"
     assert s["include_legal_moves"] and not s["move_outcomes"] and s["last_moves"] == 0
     assert calls[0]["max_tokens"] == 1024 and calls[0]["think"] is False
+    assert calls[0]["num_ctx"] == 8192
     assert "Legal moves:" in prompts[0] and "What each legal move does" not in prompts[0]
 
 
@@ -93,13 +94,15 @@ def test_run_json_records_commit_and_model_version(cli):
     assert len(run["git"]["commit"]) == 40 and run["git"]["dirty"] in (True, False)
     p = run["players"]["0"]
     assert (p["digest"], p["quantization"]) == ("sha256:abc", "Q4_K_M")
-    assert (p["think"], p["thinks"], p["ceiling"]) == (False, False, 1024)
+    assert (p["think"], p["thinks"], p["ceiling"], p["num_ctx"]) == (False, False, 1024, 8192)
 
 
-def test_think_turns_thinking_on_with_the_thinking_ceiling(cli):
+def test_think_turns_thinking_on_with_the_thinking_ceiling_and_context(cli):
     run, calls, _ = cli("--players", "llm:m:1b", "heuristic", "--think")
     assert calls[0]["think"] is True and calls[0]["max_tokens"] == 8192
-    assert run["players"]["0"]["ceiling"] == 8192
+    assert calls[0]["num_ctx"] == 16384
+    assert (run["players"]["0"]["ceiling"], run["players"]["0"]["num_ctx"]) == (8192, 16384)
+    assert run["settings"]["contexts"] == {"answer": 8192, "thinking": 16384}
 
 
 def test_effort_level_on_a_model_without_levels_is_an_error(cli):

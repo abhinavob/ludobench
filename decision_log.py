@@ -84,7 +84,8 @@ DEFINITIONS = {
     "prompt_hash": "first 16 hex chars of sha256 of the user prompt",
     "system_prompt_hash": "first 16 hex chars of sha256 of the system prompt",
     "num_ctx": "context length the Ollama server reports for the loaded model "
-               "(/api/ps); null if not an Ollama model or not reported",
+               "(/api/ps), a check of the num_ctx sent; null if not an Ollama "
+               "model or not reported",
     "heuristic_score_per_legal_move": "agents.HeuristicAgent's score for each "
                                       "legal token; heuristic_move is its choice",
     "lead_changes": "plies after which a different player has strictly the most "
