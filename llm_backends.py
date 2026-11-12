@@ -87,15 +87,18 @@ THINKING_NOT_REPORTED = {"deepseek-r1": [True], "granite4.2": [False, True]}
 # NVIDIA's API does not report reasoning, so per model: "off", the request
 # fields that switch it off, and "efforts", the reasoning_effort values it takes,
 # lowest first. Taken from each model's request schema on
-# docs.api.nvidia.com/nim/reference (2026-11-11 and 2026-11-12), not yet checked
-# with a call; Nemotron's "off" is what its page sends for reasoning_effort
-# "none". deepseek-v4.1-flash, glm-5.3-flash and minimax-m3.1-flash document no
+# docs.api.nvidia.com/nim/reference and checked with calls on 2026-11-12:
+# - mistral-large-4 rejects reasoning_effort "none" (HTTP 400) though its page
+#   lists it, and reasons when the field is left out, so it cannot be off.
+# - nemotron-3.5-super: chat_template_kwargs enable_thinking false (what its
+#   page sends for reasoning_effort "none") answered with no reasoning.
+# - kimi-k3 always thinks; its page lists low, high and max.
+# deepseek-v4.1-flash, glm-5.3-flash and minimax-m3.1-flash document no
 # reasoning field: they are sent none, and the reasoning tokens they report are
 # logged.
 NVIDIA_REASONING = {
-    "mistralai/mistral-large-4-1t-a52b": {"off": {"reasoning_effort": "none"},
-                                          "efforts": ["high"]},
-    "moonshotai/kimi-k2.6": {"off": {"chat_template_kwargs": {"thinking": False}}},
+    "mistralai/mistral-large-4-1t-a52b": {"efforts": ["high"]},
+    "moonshotai/kimi-k3": {"efforts": ["low", "high", "max"]},
     "nvidia/nemotron-3.5-super-vl-120b-a12b": {
         "off": {"chat_template_kwargs": {"enable_thinking": False}}},
     "openai/gpt-oss-20b": {"efforts": ["low", "medium", "high"]},

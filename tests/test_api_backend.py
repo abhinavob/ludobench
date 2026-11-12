@@ -30,7 +30,9 @@ class FakeAPI(BaseHTTPRequestHandler):
         {"id": "always/model", "supported_parameters": ["structured_outputs", "temperature"],
          "reasoning": {"mandatory": True, "supported_efforts": ["high", "low", "minimal"]}},
         {"id": "loose/model", "supported_parameters": ["temperature"], "reasoning": None},
-        {"id": "moonshotai/kimi-k2.6"}, {"id": "nv/other"}, {"id": "openai/gpt-oss-20b"},
+        {"id": "moonshotai/kimi-k3"}, {"id": "nv/other"}, {"id": "openai/gpt-oss-20b"},
+        {"id": "mistralai/mistral-large-4-1t-a52b"},
+        {"id": "nvidia/nemotron-3.5-super-vl-120b-a12b"},
     ]
     queue, requests = [], []
 
@@ -90,7 +92,10 @@ def test_api_models_are_named_after_llm():
     ("openrouter", "plain/model", {}, False),
     ("openrouter", "off/model", {"reasoning": {"enabled": False}}, False),
     ("openrouter", "always/model", {"reasoning": {"effort": "minimal"}}, True),
-    ("nvidia", "moonshotai/kimi-k2.6", {"chat_template_kwargs": {"thinking": False}}, False),
+    ("nvidia", "nvidia/nemotron-3.5-super-vl-120b-a12b",
+     {"chat_template_kwargs": {"enable_thinking": False}}, False),
+    ("nvidia", "moonshotai/kimi-k3", {"reasoning_effort": "low"}, True),       # always thinks
+    ("nvidia", "mistralai/mistral-large-4-1t-a52b", {"reasoning_effort": "high"}, True),
     ("nvidia", "openai/gpt-oss-20b", {"reasoning_effort": "low"}, True),
     ("nvidia", "nv/other", {}, None),                   # NVIDIA does not say
 ])
@@ -165,6 +170,11 @@ def test_rate_limit_and_server_errors_are_retried_and_not_invalid(api, capsys):
     err = capsys.readouterr().err
     assert "HTTP 429" in err and "HTTP 503" in err and "upstream failed" in err
     assert KEY not in err
+    FakeAPI.queue = [(503, {"error": "busy"}, ())]
+    call("prompt")                                      # the count is per request
+    assert call.last_retries == 1
+    call("prompt")
+    assert call.last_retries == 0
 
 
 def test_timeouts_and_cut_off_or_broken_bodies_are_retried_and_not_invalid(api, failing_urlopen,
