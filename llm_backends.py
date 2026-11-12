@@ -58,6 +58,7 @@ PROVIDER_DEFAULTS = {
 API_PROVIDERS = ("openrouter", "nvidia")
 
 DEFAULT_TIMEOUT = 600      # seconds per request
+TIMEOUT_RETRIES = 2        # retries of a request not answered in time; then the run stops
 API_RETRIES = 8            # rate-limit and server errors, with backoff up to 2 minutes
 
 # Output-token ceilings (Ollama's num_predict; thinking counts towards it).
@@ -268,21 +269,6 @@ def thinking_setting(model, info, think=False, effort=None):
     return (False, False) if False in values else (None, True)
 
 
-def _timed_out(call):
-    """
-    A request the server accepted but did not answer in time (e.g. a thinking
-    model looping at temperature 0) is recorded as an empty, invalid reply and
-    not retried: a retry would most likely loop again, and one such move must
-    not end the run.
-    """
-    call.last_reasoning = ""
-    call.last_content = ""
-    call.last_prompt_tokens = call.last_completion_tokens = None
-    call.last_thinking_tokens = None
-    call.last_finish_reason = "timeout"
-    return ""
-
-
 def parse_move_json(content):
     """
     Read {"reason": str, "piece": int} from a JSON reply.
@@ -342,10 +328,11 @@ def make_llm(spec,
     api_reasoning), temperature=None leaves temperature out for models that do
     not take it, and requests_per_minute overrides the API's pace.
 
-    timeout is the per-request limit in seconds. A request the server accepted
-    but did not answer in time returns "" (an invalid reply) without retrying.
-    Failing to connect at all, e.g. a refused connection or an unreachable host,
-    is retried and then raises, which stops the run.
+    timeout is the per-request limit in seconds. A request not answered in time
+    is retried TIMEOUT_RETRIES times; server errors, refused or dropped
+    connections and cut-off replies are retried `retries` times in all. Once
+    the retries run out the call raises, which stops the run: none of these
+    failures is ever an invalid reply.
 
     structured=True constrains the reply to move_schema(), with its two fields in
     schema_order ("reason_first" or "piece_first") and, if reason_max_chars is
@@ -356,7 +343,7 @@ def make_llm(spec,
     After each call, the returned function carries:
       last_reasoning      the model's reasoning text, for display only
       last_finish_reason  why the reply ended: "stop", "length" (ran out of
-                          tokens), "timeout", or None if the provider gave none
+                          tokens), or None if the provider gave none
       last_content        the raw reply text
       last_prompt_tokens / last_completion_tokens
                           token counts the server reported, or None; the
@@ -368,7 +355,7 @@ def make_llm(spec,
       last_cost           US dollars the call cost (OpenRouter's figure; 0 on
                           NVIDIA and Ollama)
       last_served_by      the upstream provider OpenRouter routed to, or None
-      last_retries        rate-limit and server errors retried for this call
+      last_retries        failed attempts retried for this call
     and, fixed: spec, provider, base_url.
     """
     if spec == "dummy":
@@ -428,9 +415,11 @@ def _make_api(spec, provider, model, base_url, max_tokens, stop, temperature,
     Call an OpenAI-compatible /chat/completions API (OpenRouter, NVIDIA). The
     schema is sent as a json_schema response format; on OpenRouter only
     providers that support every parameter sent, the schema included, are used.
-    Rate-limit and server errors are retried with backoff, printed, and counted
-    in last_retries, not as invalid replies; any other error stops the run.
+    Rate-limit and server errors, timeouts, dropped connections and cut-off or
+    broken bodies are retried with backoff, printed, and counted in
+    last_retries, not as invalid replies; any other error stops the run.
     """
+    import http.client
     import urllib.error
     import urllib.request
 
@@ -466,6 +455,7 @@ def _make_api(spec, provider, model, base_url, max_tokens, stop, temperature,
         call.last_content = ""
         call.last_prompt_tokens = call.last_completion_tokens = None
         call.last_thinking_tokens = call.last_cost = None
+        timeouts = 0
         for attempt in range(retries):
             call.last_retries = attempt
             _pace(base_url, requests_per_minute)
@@ -486,10 +476,14 @@ def _make_api(spec, provider, model, base_url, max_tokens, stop, temperature,
                     raise RuntimeError(f"{spec}: {e}") from None
                 wait = wait if e.retry_after is None else e.retry_after
                 problem = str(e)
-            except TimeoutError:
-                return _timed_out(call)               # connected, but no answer in time
-            except (urllib.error.URLError, ConnectionError) as e:
-                problem = str(getattr(e, "reason", e))
+            except TimeoutError:                      # connected, but no answer in time
+                timeouts += 1
+                problem = f"no reply within {timeout}s"
+                if timeouts > TIMEOUT_RETRIES:
+                    break
+            except (urllib.error.URLError, ConnectionError, http.client.HTTPException,
+                    ValueError) as e:                 # dropped, or a cut-off or broken body
+                problem = str(getattr(e, "reason", e)) or type(e).__name__
             else:
                 choice = data["choices"][0]
                 msg = choice["message"]
@@ -509,7 +503,7 @@ def _make_api(spec, provider, model, base_url, max_tokens, stop, temperature,
                 print(f"  {spec}: {problem}; retry {attempt + 1}/{retries - 1} in {wait}s",
                       file=sys.stderr, flush=True)
                 time.sleep(wait)
-        raise RuntimeError(f"{spec} failed after {retries} attempts: {problem}")
+        raise RuntimeError(f"{spec} failed after {attempt + 1} attempts: {problem}")
 
     call.spec, call.provider, call.base_url = spec, provider, base_url
     call.last_reasoning = ""
@@ -562,7 +556,7 @@ def _make_ollama_native(spec, model, base_url, max_tokens, stop, temperature,
         call.last_content = ""
         call.last_prompt_tokens = call.last_completion_tokens = None
         call.last_thinking_tokens = None
-        last_err = None
+        last_err, timeouts = None, 0
         for attempt in range(retries):
             call.last_retries = attempt
             try:
@@ -580,7 +574,7 @@ def _make_ollama_native(spec, model, base_url, max_tokens, stop, temperature,
                         if chunk.get("done"):
                             done = chunk
                         elif time.monotonic() > deadline:
-                            return _timed_out(call)   # closing the stream stops the model
+                            raise TimeoutError        # closing the stream stops the model
                 call.last_finish_reason = done.get("done_reason")
                 call.last_prompt_tokens = done.get("prompt_eval_count")
                 call.last_completion_tokens = done.get("eval_count")
@@ -592,20 +586,20 @@ def _make_ollama_native(spec, model, base_url, max_tokens, stop, temperature,
             except urllib.error.HTTPError as e:
                 # Ollama explains the failure in the body, e.g. "model not found".
                 detail = e.read().decode("utf-8", errors="replace").strip()
-                last_err = RuntimeError(f"HTTP {e.code}: {detail}")
+                last_err = f"HTTP {e.code}: {detail}"
                 if 400 <= e.code < 500:
                     break                             # bad request: retrying won't help
-                if attempt < retries - 1:
-                    time.sleep(retry_wait * (attempt + 1))
             except TimeoutError:
-                # Connected, but no answer in time: the model's fault, not the
-                # network's. (A connect timeout arrives wrapped in URLError and
-                # is handled below.)
-                return _timed_out(call)
-            except Exception as e:                    # refused, unreachable, 5xx
+                # Connected, but no answer in time. (A connect timeout arrives
+                # wrapped in URLError and is handled below.)
+                timeouts += 1
+                last_err = f"no reply within {timeout}s"
+                if timeouts > TIMEOUT_RETRIES:
+                    break
+            except Exception as e:                    # refused, unreachable, 5xx, cut off
                 last_err = getattr(e, "reason", e)
-                if attempt < retries - 1:
-                    time.sleep(retry_wait * (attempt + 1))
+            if attempt < retries - 1:
+                time.sleep(retry_wait * (attempt + 1))
         raise RuntimeError(f"{spec} failed after {attempt + 1} attempt(s) "
                            f"at {base_url}: {last_err}")
 

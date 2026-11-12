@@ -249,6 +249,9 @@ def test_shuffled_legal_order_is_reproducible(tmp_path, monkeypatch):
     assert a == b
     lists = [json.loads(p.split(run_games.LEGAL_LIST_LEAD)[1].split("\n")[0]) for p in a]
     assert any(lst != sorted(lst) for lst in lists)
+    plies = [json.loads(line) for line in
+             (tmp_path / "a" / "decisions.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert [r["shown_legal_moves"] for r in plies if r["prompt_hash"]] == lists
 
 
 # ---------- full games against the reference rules ----------

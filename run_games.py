@@ -49,9 +49,9 @@ from llm_agent import LLMAgent
 from evaluation import evaluate
 from llm_backends import (make_llm, parse_spec, check_ollama, model_info, reason_first,
                           thinking_setting, api_model_info, api_reasoning,
-                          DEFAULT_SYSTEM_PROMPT, DEFAULT_TIMEOUT, DEFAULT_SCHEMA_ORDER,
-                          REASON_MAX_CHARS, ANSWER_CEILING, THINKING_CEILING,
-                          ANSWER_CONTEXT, THINKING_CONTEXT,
+                          DEFAULT_SYSTEM_PROMPT, DEFAULT_TIMEOUT, TIMEOUT_RETRIES,
+                          DEFAULT_SCHEMA_ORDER, REASON_MAX_CHARS, ANSWER_CEILING,
+                          THINKING_CEILING, ANSWER_CONTEXT, THINKING_CONTEXT,
                           API_PROVIDERS, API_RETRIES, PROVIDER_DEFAULTS)
 from board_render import render_board, describe_move, group_moves
 from decision_log import (RunLog, GameLog, CONTEXT_MODE, git_state, short_hash,
@@ -195,8 +195,8 @@ class TrackedLLMAgent(LLMAgent):
             env.history_text = last_moves_text(env, recent, player) if recent else None
         self.last_decision = None
         calls_before = env.llm_calls
-        # The list as the prompt shows it. The decision log keeps the engine's
-        # ascending list either way.
+        # The list as the prompt shows it; the decision log keeps both it and
+        # the engine's ascending list.
         shown = list(legal_moves)
         if self.legal_order == "reversed":
             shown.reverse()
@@ -218,11 +218,10 @@ class TrackedLLMAgent(LLMAgent):
         if raw is None:                            # dummy backend
             raw = env.last_llm_raw
         parsed = self._parsed_index(env.last_llm_raw, legal_moves, env.original_rules)
+        listed = self.include_legal_moves_in_prompt
         cause = None
         if fallback:
-            if why == "timeout":
-                cause = "timeout"
-            elif not raw:
+            if not raw:
                 cause = "empty"
             elif parsed is None:
                 cause = "unparseable"
@@ -233,6 +232,8 @@ class TrackedLLMAgent(LLMAgent):
         cost = getattr(call, "last_cost", None)
         retries = getattr(call, "last_retries", 0)
         self.last_decision = {
+            "shown_legal_moves": shown if listed else None,
+            "chosen_list_position": shown.index(choice) if listed and not fallback else None,
             "provider": getattr(call, "provider", None),
             "served_by": getattr(call, "last_served_by", None),
             "raw_reply": raw,
@@ -304,9 +305,8 @@ class WatchAgent(BaseAgent):
                 print(f"     model said: {_short(raw) if raw else '(empty content)'}")
                 why = getattr(self.inner.llm_call, "last_finish_reason", None)
                 if why:
-                    note = {"length": "ran out of tokens",
-                            "timeout": "request timed out"}.get(why, "")
-                    print(f"     reply ended: {why}" + (f" ({note})" if note else ""))
+                    note = " (ran out of tokens)" if why == "length" else ""
+                    print(f"     reply ended: {why}{note}")
                 # Display only: the reasoning is never parsed for a move.
                 thinking = getattr(self.inner.llm_call, "last_reasoning", "")
                 if thinking:
@@ -677,6 +677,7 @@ def run_games(specs, games, seed0, out_dir, include_legal_moves=True, legal_orde
         "temperature": 0,
         "system_prompt": DEFAULT_SYSTEM_PROMPT,
         "request_timeout_s": DEFAULT_TIMEOUT,
+        "timeout_retries": TIMEOUT_RETRIES,
     }
     # Copied onto every decision record. num_ctx is filled in per player.
     config = {

@@ -42,7 +42,7 @@ class FakeAPI(BaseHTTPRequestHandler):
         for k, v in headers:
             self.send_header(k, v)
         self.end_headers()
-        self.wfile.write(json.dumps(body).encode())
+        self.wfile.write(body if isinstance(body, bytes) else json.dumps(body).encode())
 
     def do_GET(self):
         if self.path.endswith("/endpoints"):
@@ -147,6 +147,24 @@ def test_rate_limit_and_server_errors_are_retried_and_not_invalid(api, capsys):
     err = capsys.readouterr().err
     assert "HTTP 429" in err and "HTTP 503" in err and "upstream failed" in err
     assert KEY not in err
+
+
+def test_timeouts_and_cut_off_or_broken_bodies_are_retried_and_not_invalid(api, failing_urlopen,
+                                                                          capsys):
+    failing_urlopen(TimeoutError())
+    FakeAPI.queue = [(200, b'{"choices": [', [("Content-Length", "500")]),
+                     (200, b"<html>bad gateway</html>", ())]
+    call = standard("llm:openrouter/plain/model")
+    assert call("prompt") == '{"reason": "safe square", "piece": 0}'
+    assert call.last_retries == 3 and len(FakeAPI.requests) == 3
+    err = capsys.readouterr().err
+    assert "no reply within" in err and "IncompleteRead" in err and "Expecting value" in err
+
+
+def test_third_timeout_stops_the_run(api, failing_urlopen):
+    failing_urlopen(*[TimeoutError()] * 3)
+    with pytest.raises(RuntimeError, match="after 3 attempts: no reply within 600s"):
+        standard("llm:openrouter/plain/model")("prompt")       # though 4 attempts are allowed
 
 
 def test_other_errors_stop_at_once_without_the_key(api):

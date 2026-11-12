@@ -58,9 +58,16 @@ DEFINITIONS = {
                           "square that at least one opponent token on the track "
                           "could land on with a single roll of 1-6",
     "pieces_lost_after_exposure": "exposed tokens captured before they moved again",
-    "fallback_cause": "timeout: no reply in time; empty: reply had no content; "
-                      "unparseable: no token index could be read; illegal: an "
-                      "index was read but is not a legal move",
+    "fallback_cause": "empty: reply had no content; unparseable: no token index "
+                      "could be read; illegal: an index was read but is not a "
+                      "legal move. A request not answered in time is retried, "
+                      "then stops the run; it is never an invalid reply",
+    "shown_legal_moves": "the legal token indices in the order the prompt listed "
+                         "them (see legal_order); null if the prompt did not list "
+                         "them. legal_moves is always the engine's ascending list",
+    "chosen_list_position": "0-based position of the model's choice in "
+                            "shown_legal_moves; null for an invalid reply or an "
+                            "unlisted list",
     "parsed_index": "the index the reply parser read, legal or not; null if none",
     "reason_chars": "length in characters of the parsed reason; null if no reply "
                     "was parsed",
@@ -72,10 +79,12 @@ DEFINITIONS = {
                        "chunk per token), or the reasoning tokens an API reported; "
                        "null if not counted",
     "provider": "who served the model: ollama_native, openrouter or nvidia",
-    "served_by": "the upstream provider OpenRouter routed the request to",
+    "served_by": "the upstream provider OpenRouter routed the request to; null "
+                 "on Ollama and NVIDIA",
     "cost_usd": "US dollars the call cost: OpenRouter's figure, 0 on NVIDIA and "
                 "Ollama; run.json's cost_usd is the run's total",
-    "retries": "rate-limit and server errors retried before the reply; they do "
+    "retries": "failed attempts retried before the reply (rate limits, server "
+               "errors, timeouts, dropped connections, cut-off bodies); they do "
                "not make the reply invalid",
     "hit_ceiling": "the reply stopped at the output-token ceiling (finish_reason "
                    "length); a reply cut off there is invalid",
@@ -389,6 +398,7 @@ class GameLog:
         if model is not None:
             agent.last_decision = None            # never reuse for a later ply
         return model or {
+            "shown_legal_moves": None, "chosen_list_position": None,
             "raw_reply": None, "parsed_index": None, "parsed_reason": None,
             "reasoning_text": None, "finish_reason": None, "was_fallback": None,
             "fallback_cause": None, "prompt_tokens": None, "completion_tokens": None,

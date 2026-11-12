@@ -1,10 +1,13 @@
 """Ollama backend: model info, thinking settings, streamed replies, JSON parsing (against a fake server)."""
+import itertools
 import json
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from types import SimpleNamespace
 
 import pytest
 
+import llm_backends
 from llm_backends import (THINKING_NOT_REPORTED, make_llm, model_info, parse_move_json,
                           reason_first, thinking_setting)
 
@@ -34,8 +37,11 @@ class FakeOllama(BaseHTTPRequestHandler):
     def reply(self, lines):
         self.send_response(200)
         self.end_headers()
-        for line in lines:
-            self.wfile.write((json.dumps(line) + "\n").encode())
+        try:
+            for line in lines:
+                self.wfile.write((json.dumps(line) + "\n").encode())
+        except ConnectionError:                       # the client stopped reading
+            pass
 
     def do_GET(self):
         self.reply([{"models": [{"name": m, "model": m, "digest": f"sha-{m}"}
@@ -113,6 +119,25 @@ def test_streamed_reply_counts_thinking_tokens_and_sends_the_settings(ollama):
     assert sent["format"]["properties"]["reason"]["maxLength"] == 500
 
 
+def thinking_model(ollama):
+    return make_llm(f"ollama_native://{ollama.split('//')[1]}/think:1b", max_tokens=8192,
+                    stop=None, think=True, structured=True, retry_wait=0)
+
+
+def test_timeouts_are_retried_twice(ollama, failing_urlopen):
+    failing_urlopen(TimeoutError(), TimeoutError())
+    call = thinking_model(ollama)
+    assert call("prompt") == '{"reason": "capture", "piece": 2}' and call.last_retries == 2
+
+
+def test_reply_still_streaming_at_the_timeout_stops_the_run_after_two_retries(ollama, monkeypatch):
+    clock = itertools.count(0, 1000)                  # every chunk arrives 1000 s later
+    monkeypatch.setattr(llm_backends, "time", SimpleNamespace(monotonic=lambda: next(clock),
+                                                              sleep=lambda s: None))
+    with pytest.raises(RuntimeError, match=r"after 3 attempt\(s\).*no reply within 600s"):
+        thinking_model(ollama)("prompt")
+
+
 class Reply:
     """Backend stand-in that gives a fixed reply with the attributes Ollama's backend sets."""
 
@@ -129,11 +154,11 @@ class Reply:
         return self.content
 
 
-def decide(reply):
+def decide(reply, **kw):
     from run_games import TrackedLLMAgent
     from spot_evaluation import SpotEnv
     env = SpotEnv([0, 2], {0: [5, -1, -1, -1], 2: [-1] * 4})
-    agent = TrackedLLMAgent(reply)
+    agent = TrackedLLMAgent(reply, **kw)
     agent.select_move(env, 0, 6, [0, 1, 2, 3])
     return agent.last_decision
 
@@ -144,6 +169,17 @@ def test_decision_log_records_reply_size_thinking_and_time():
     assert d["reason_first"] is True
     assert d["thinking_tokens"] == 120 and d["hit_ceiling"] is False
     assert d["latency_ms"] is not None and not d["was_fallback"]
+
+
+@pytest.mark.parametrize("reply, kw, shown, position", [
+    ('{"reason": "x", "piece": 1}', {}, [0, 1, 2, 3], 1),
+    ('{"reason": "x", "piece": 1}', {"legal_order": "reversed"}, [3, 2, 1, 0], 2),
+    ('{"reason": "x", "piece": 7}', {"legal_order": "reversed"}, [3, 2, 1, 0], None),
+    ('{"reason": "x", "piece": 1}', {"include_legal_moves_in_prompt": False}, None, None),
+])
+def test_decision_log_records_the_shown_list_and_chosen_position(reply, kw, shown, position):
+    d = decide(Reply(reply), **kw)
+    assert d["shown_legal_moves"] == shown and d["chosen_list_position"] == position
 
 
 def test_reply_cut_off_at_the_ceiling_is_invalid_and_keeps_its_thinking_length():
