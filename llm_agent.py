@@ -6,8 +6,11 @@ from llm_backends import (DEFAULT_SCHEMA_ORDER, REASON_MAX_CHARS, SCHEMA_ORDERS,
                           parse_move_json)
 
 # The prompt's rule and reply-format blocks. ORIGINAL_TEXT is the released
-# prompt word for word (it asks for "<int> | <reason>"). OUR_TEXT describes our
-# rules; its JSON reply format is built per agent by json_reply_format.
+# prompt word for word (it asks for "<int> | <reason>"). OUR_TEXT changes only
+# what our rules and the JSON reply need, states the direction of movement and
+# corrects the turn after a 6 with no legal move; it leaves out the index-to-
+# "token1" mapping, which the paper's printed prompt does not have. Its JSON
+# reply format is built per agent by json_reply_format.
 ORIGINAL_TEXT = {
     "important": """\
 IMPORTANT:
@@ -63,63 +66,40 @@ PATH NOTE:
 OUR_TEXT = {
     "important": """\
 IMPORTANT:
-- Reply with ONE JSON object and nothing else (see OUTPUT FORMAT).
-- Its "piece" MUST be the token index of one of your own 4 tokens (0–3).
-- Do NOT give a board position instead of a token index.
-- If you reply with anything else, it is invalid.""",
+- You must output ONLY one JSON object (see OUTPUT FORMAT).
+- Do NOT output board positions or text without the token index.
+- The token index MUST refer to one of your own 4 tokens (0–3).
+- If you output anything else, it is invalid.""",
     "board": """\
-1. The main circular board has 52 squares, indexed 0–51. Tokens move towards
-   higher indices and wrap from 51 to 0.
+1. The main circular board has 52 squares, indexed 0–51.
+   Tokens move to higher indices, wrapping from 51 to 0.
 2. Each player has a fixed START square on the main board.
-3. Each pip of the dice moves a token one square forward along its route.
-4. From its START a token moves along the main board to the square two
-   before its START (50 pips from START; for START 0 that is square 50). It
-   never lands on the square just before its START, which other players'
-   tokens still pass through.
-5. The next pip takes it into that player's HOME PATH (6 squares, private
-   indices >= 52). A token never lands on or passes its own START again.
-6. The last home-path square is HOME_END, 56 pips from START.
-7. In the home path a token may move by any roll that does not pass HOME_END.
-8. A token finishes only by landing EXACTLY on HOME_END; a roll that would
-   pass HOME_END cannot be used by that token.""",
-    "rules": """\
-1. All tokens start in base (-1).
-2. A token can leave base ONLY if the dice roll is exactly 6.
-3. When leaving base, the token is placed on that player's START square; this
-   uses the whole roll.
-4. Tokens move forward by the dice value and pass over any tokens in the way
-   (no square is ever blocked).
-5. Your own tokens may share safe squares, home path squares and HOME_END.
-   On any other square you cannot land on your own token.
-6. CAPTURE rule (main board only): if you land on an opponent token on
-   a NON-safe square, that opponent token is captured and sent to base (-1).
-7. Captures NEVER happen on safe squares or in any home path. Tokens of
-   several players can share a safe square.
-8. Rolling a 6 grants an extra turn. Capturing or finishing a token does not.
-9. If no legal move exists, the turn is skipped (after a 6 you roll again).
-10. Players take turns in seat order; a roll-off chose who started.
-11. The first player to move ALL tokens to HOME_END wins.
-12. Home paths are private: ONLY your tokens can enter your home path.""",
-    "path_note": """\
-PATH NOTE:
-- Movement is RELATIVE to each player's START square.
-- From the square two before your START, the next pip enters YOUR home path.
-- Other players have DIFFERENT starts and DIFFERENT home path ranges.
-- Home path ranges are player-specific; only that player can be there.
-- Safe squares are SHARED board squares (0–51) for all players.""",
+3. Tokens move forward along the main board relative to their START.
+4. After 50 steps from START, the next step enters that player's HOME PATH.
+5. Each player has a UNIQUE HOME PATH (private indices >= 52).
+6. The final home position is HOME_END for your player.
+7. Tokens in the home path must land EXACTLY on HOME_END to finish.
+8. Tokens in the home path move by any roll that does not pass HOME_END.
+9. Overshooting HOME_END is illegal.""",
+    "rules": ORIGINAL_TEXT["rules"].replace(
+        "11. If no legal move exists, the turn is skipped.",
+        "11. If no legal move exists, the turn is skipped (after a 6, roll again)."),
+    "path_note": ORIGINAL_TEXT["path_note"].replace(
+        "- After a full lap (52 steps) from your START, you enter YOUR home path.",
+        "- After 50 steps from your START, the next step enters YOUR home path."),
 }
 
 
 def json_reply_format(schema_order=DEFAULT_SCHEMA_ORDER, reason_max_chars=REASON_MAX_CHARS):
     """OUTPUT FORMAT block for a JSON reply with its fields in schema order."""
-    reason = "why you chose this move"
-    if reason_max_chars:
-        reason += f", at most {reason_max_chars} characters"
+    reason = "one line" + (f", at most {reason_max_chars} characters" if reason_max_chars else "")
     fields = {"reason": f'"reason": "<{reason}>"', "piece": '"piece": <token index>'}
     example = "{" + ", ".join(fields[f] for f in SCHEMA_ORDERS[schema_order]) + "}"
-    return ("- Reply with exactly one JSON object, with its fields in this order:\n"
-            f"  {example}\n"
-            '- "piece" MUST be a TOKEN INDEX of your own tokens: 0, 1, 2 or 3.\n'
+    return (f"- Return exactly one JSON object: {example}\n"
+            '- "piece" MUST be a TOKEN INDEX for your own pieces.\n'
+            "- In this game, each player has 4 tokens, so valid indices are: 0, 1, 2, 3.\n"
+            "- If the game ever changes the number of tokens per player, use "
+            "0..(tokens_per_player-1).\n"
             "- Do NOT return anything else")
 
 

@@ -1,4 +1,5 @@
 """The LLM prompt: released text with original rules, our rules and the JSON reply otherwise."""
+import difflib
 import hashlib
 import json
 import random
@@ -42,19 +43,37 @@ def test_original_rules_prompt_is_the_released_prompt(kw, released):
     assert sha(prompt(True, **kw)[0]) == released
 
 
-def test_our_prompt_states_our_rules():
-    text = prompt(False)[0]
-    for phrase in ("56 pips from START", "for START 0 that is square 50",
-                   "never lands on the square just before its START",
-                   "From the square two before your START, the next pip enters YOUR home path",
-                   "A token never lands on or passes its own START again",
-                   "any roll that does not pass HOME_END", "Capturing or finishing a token does not",
-                   "(after a 6 you roll again)", "a roll-off chose who started",
-                   "Your own tokens may share safe squares, home path squares and HOME_END",
-                   "no square is ever blocked"):
-        assert phrase in text, phrase
-    for released in ("52 steps", "<int> | <one line reason>", "must land EXACTLY on HOME_END"):
-        assert released not in text, released
+def test_our_prompt_changes_only_these_lines_of_the_released_prompt():
+    diff = list(difflib.unified_diff(prompt(True)[0].splitlines(), prompt(False)[0].splitlines(),
+                                     n=0, lineterm=""))[2:]
+    removed = [line[1:] for line in diff if line.startswith("-")]
+    added = [line[1:] for line in diff if line.startswith("+")]
+    assert removed == [
+        '- You must output ONLY a token index (0, 1, 2, or 3) followed by " | " and a one‑line reason.',
+        "- Token index mapping (for clarity): 0→token1, 1→token2, 2→token3, 3→token4.",
+        "4. After completing one full lap (52 steps) from their START, tokens enter",
+        "   that player's HOME PATH.",
+        "8. Overshooting HOME_END is illegal.",
+        "11. If no legal move exists, the turn is skipped.",
+        "- After a full lap (52 steps) from your START, you enter YOUR home path.",
+        "- Return exactly one line in the format:",
+        "  <int> | <one line reason>",
+        "- The line MUST start with the integer",
+        "- The integer MUST be a TOKEN INDEX for your own pieces.",
+        "- The reason MUST be a single line (no newlines)",
+    ]
+    assert added == [
+        "- You must output ONLY one JSON object (see OUTPUT FORMAT).",
+        "   Tokens move to higher indices, wrapping from 51 to 0.",
+        "4. After 50 steps from START, the next step enters that player's HOME PATH.",
+        "8. Tokens in the home path move by any roll that does not pass HOME_END.",
+        "9. Overshooting HOME_END is illegal.",
+        "11. If no legal move exists, the turn is skipped (after a 6, roll again).",
+        "- After 50 steps from your START, the next step enters YOUR home path.",
+        '- Return exactly one JSON object: {"reason": "<one line, at most 500 characters>", '
+        '"piece": <token index>}',
+        '- "piece" MUST be a TOKEN INDEX for your own pieces.',
+    ]
 
 
 def test_our_prompt_names_pieces_only_by_index():
@@ -64,13 +83,12 @@ def test_our_prompt_names_pieces_only_by_index():
 
 def test_our_prompt_asks_for_the_json_reply_reason_first():
     text = prompt(False)[0]
-    assert ('{"reason": "<why you chose this move, at most 500 characters>", '
-            '"piece": <token index>}') in text
+    assert '{"reason": "<one line, at most 500 characters>", "piece": <token index>}' in text
 
 
 def test_json_reply_format_follows_the_schema_order():
     text = prompt(False, schema_order="piece_first", reason_max_chars=None)[0]
-    assert '{"piece": <token index>, "reason": "<why you chose this move>"}' in text
+    assert '{"piece": <token index>, "reason": "<one line>"}' in text
 
 
 def test_json_reply_is_read_by_its_piece_field():
