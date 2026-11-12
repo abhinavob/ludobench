@@ -110,3 +110,36 @@ def test_queue_runs_each_line_in_order_and_reports_failures(tmp_path, monkeypatc
                      ["--players", "llm:m", "heuristic", "--outcomes", "--experiment",
                       "with space"]]
     assert "1 of 2 runs done" in capsys.readouterr().out
+
+
+def other_code(mp):
+    mp.setattr(run_games, "git_state", lambda: {"commit": "0" * 40, "dirty": False})
+
+
+def test_run_made_by_other_code_is_kept_when_finished_and_redone_when_nothing_finished(
+        tmp_path, monkeypatch):
+    play(tmp_path / "whole")
+    play(tmp_path / "done")
+    before = read(tmp_path / "done")
+    with monkeypatch.context() as mp:
+        stop_in_game(mp, 0)
+        with pytest.raises(KeyboardInterrupt):
+            play(tmp_path / "nothing")
+    with monkeypatch.context() as mp:
+        other_code(mp)
+        assert len(play(tmp_path / "done")) == 4 and read(tmp_path / "done") == before
+        play(tmp_path / "nothing")
+    assert read(tmp_path / "nothing") == read(tmp_path / "whole")
+    meta = json.loads((tmp_path / "nothing" / "run.json").read_text(encoding="utf-8"))
+    assert meta["games"]["errored"] == 0 and "resumed_at" not in meta
+
+
+def test_unfinished_run_made_by_other_code_is_refused(tmp_path, monkeypatch):
+    with monkeypatch.context() as mp:
+        stop_in_game(mp, 2)
+        with pytest.raises(KeyboardInterrupt):
+            play(tmp_path / "run")
+    with monkeypatch.context() as mp:
+        other_code(mp)
+        with pytest.raises(SystemExit, match="unfinished run made by other code"):
+            play(tmp_path / "run")

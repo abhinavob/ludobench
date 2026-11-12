@@ -30,7 +30,7 @@ class FakeAPI(BaseHTTPRequestHandler):
         {"id": "always/model", "supported_parameters": ["structured_outputs", "temperature"],
          "reasoning": {"mandatory": True, "supported_efforts": ["high", "low", "minimal"]}},
         {"id": "loose/model", "supported_parameters": ["temperature"], "reasoning": None},
-        {"id": "moonshotai/kimi-k2.6"}, {"id": "nv/other"},
+        {"id": "moonshotai/kimi-k2.6"}, {"id": "nv/other"}, {"id": "openai/gpt-oss-20b"},
     ]
     queue, requests = [], []
 
@@ -91,10 +91,28 @@ def test_api_models_are_named_after_llm():
     ("openrouter", "off/model", {"reasoning": {"enabled": False}}, False),
     ("openrouter", "always/model", {"reasoning": {"effort": "minimal"}}, True),
     ("nvidia", "moonshotai/kimi-k2.6", {"chat_template_kwargs": {"thinking": False}}, False),
+    ("nvidia", "openai/gpt-oss-20b", {"reasoning_effort": "low"}, True),
     ("nvidia", "nv/other", {}, None),                   # NVIDIA does not say
 ])
 def test_reasoning_is_off_where_the_api_allows(api, provider, model, fields, reasons):
     assert api_reasoning(provider, api_model_info(provider, model)) == (fields, reasons)
+
+
+@pytest.mark.parametrize("provider, model, effort, fields", [
+    ("openrouter", "always/model", "high", {"reasoning": {"effort": "high"}}),
+    ("openrouter", "off/model", "low", {"reasoning": {"effort": "low"}}),
+    ("nvidia", "openai/gpt-oss-20b", "high", {"reasoning_effort": "high"}),
+])
+def test_effort_is_sent_as_the_api_s_reasoning_effort(api, provider, model, effort, fields):
+    assert api_reasoning(provider, api_model_info(provider, model), effort) == (fields, True)
+
+
+@pytest.mark.parametrize("provider, model", [("openrouter", "always/model"),
+                                             ("openrouter", "plain/model"),
+                                             ("nvidia", "nv/other")])
+def test_effort_the_model_does_not_list_is_an_error(api, provider, model):
+    with pytest.raises(ValueError, match="no reasoning effort 'medium'"):
+        api_reasoning(provider, api_model_info(provider, model), "medium")
 
 
 def test_model_check_reports_structured_outputs_and_reasoning(api):
@@ -200,7 +218,7 @@ def test_run_with_an_api_player_logs_provider_tokens_and_cost(api, tmp_path, mon
     monkeypatch.setattr(sys, "argv", ["run_games.py", "--players", "llm:openrouter/always/model",
                                       "heuristic", "--max-steps", "40"])
     run_games.main()
-    folder = tmp_path / "results" / "sandbox" / "openrouter-always-model"
+    folder = tmp_path / "results" / "sandbox" / "openrouter-always-model_heuristic"
     run = json.loads((folder / "run.json").read_text(encoding="utf-8"))
     player = run["players"]["0"]
     assert player["reasoning"] == {"reasoning": {"effort": "minimal"}} and player["thinks"]
@@ -217,6 +235,15 @@ def test_run_with_an_api_player_logs_provider_tokens_and_cost(api, tmp_path, mon
     assert float(row["cost_usd"]) == pytest.approx(0.0012 * len(calls), abs=1e-4)
     for f in folder.iterdir():
         assert KEY not in f.read_text(encoding="utf-8")
+
+
+def test_every_api_model_gets_the_thinking_ceiling_and_its_effort_is_recorded(api, tmp_path):
+    for spec, effort in (("llm:openrouter/plain/model", None),
+                         ("llm:nvidia/openai/gpt-oss-20b", "high")):
+        player = run_games.player_info([spec, "heuristic"], [0, 2])[0]
+        kwargs, record = run_games.llm_setup(player, False, False, effort, run_games.RELEASED)
+        assert kwargs["max_tokens"] == record["ceiling"] == 8192 and record["effort"] == effort
+        assert record["reasoning"] == kwargs["extra_body"]
 
 
 def test_api_player_needs_its_key_and_structured_outputs(api, tmp_path, monkeypatch):

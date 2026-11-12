@@ -64,6 +64,9 @@ API_RETRIES = 8            # rate-limit and server errors, with backoff up to 2 
 # Output-token ceilings (Ollama's num_predict; thinking counts towards it).
 ANSWER_CEILING = 1024
 THINKING_CEILING = 8192    # provisional; set from analysis/measure_thinking.py
+# Every API model gets the thinking ceiling: an API does not always say whether
+# a model reasons, and some cannot stop.
+API_CEILING = THINKING_CEILING
 # Ollama context windows (num_ctx), sent with every request so a server default
 # cannot change them; a thinking reply needs room for its ceiling.
 ANSWER_CONTEXT = 8192
@@ -81,14 +84,21 @@ THINKING_CONTEXT = 16384
 #   thinking; "high" acted as true. Without a "think" field it thinks.
 THINKING_NOT_REPORTED = {"deepseek-r1": [True], "granite4.2": [False, True]}
 
-# How to turn reasoning off on NVIDIA's API, which does not report it, by model:
-# (extra request fields, whether the model still reasons). Taken from each
-# model's request schema on docs.api.nvidia.com/nim/reference (2026-11-11), not
-# yet checked with a call. A model not listed is sent no reasoning field, and
-# the reasoning tokens it reports are logged.
+# NVIDIA's API does not report reasoning, so per model: "off", the request
+# fields that switch it off, and "efforts", the reasoning_effort values it takes,
+# lowest first. Taken from each model's request schema on
+# docs.api.nvidia.com/nim/reference (2026-11-11 and 2026-11-12), not yet checked
+# with a call; Nemotron's "off" is what its page sends for reasoning_effort
+# "none". deepseek-v4.1-flash, glm-5.3-flash and minimax-m3.1-flash document no
+# reasoning field: they are sent none, and the reasoning tokens they report are
+# logged.
 NVIDIA_REASONING = {
-    "mistralai/mistral-large-4-1t-a52b": ({"reasoning_effort": "none"}, False),
-    "moonshotai/kimi-k2.6": ({"chat_template_kwargs": {"thinking": False}}, False),
+    "mistralai/mistral-large-4-1t-a52b": {"off": {"reasoning_effort": "none"},
+                                          "efforts": ["high"]},
+    "moonshotai/kimi-k2.6": {"off": {"chat_template_kwargs": {"thinking": False}}},
+    "nvidia/nemotron-3.5-super-vl-120b-a12b": {
+        "off": {"chat_template_kwargs": {"enable_thinking": False}}},
+    "openai/gpt-oss-20b": {"efforts": ["low", "medium", "high"]},
 }
 # OpenRouter's reasoning efforts, lowest first.
 EFFORTS = ("none", "minimal", "low", "medium", "high", "xhigh", "max")
@@ -211,20 +221,35 @@ def api_model_info(provider, model):
             "reasoning": entry.get("reasoning")}
 
 
-def api_reasoning(provider, info):
+def api_reasoning(provider, info, effort=None):
     """
-    (extra request fields that turn reasoning off, or keep it lowest where it
-    cannot be off; whether the model reasons, None if the API does not say).
+    (extra request fields for the model's reasoning; whether it reasons, None if
+    the API does not say). Without an effort, reasoning is switched off where
+    the model allows it, else kept at its lowest effort. An effort is sent as
+    NVIDIA's reasoning_effort or OpenRouter's reasoning.effort; one the model
+    does not list is a ValueError.
     """
-    reasoning = info["reasoning"]
+    reasoning = info["reasoning"] or {}
     if provider == "nvidia":
-        return reasoning or ({}, None)
-    if reasoning is None:
-        return {}, False
-    if not reasoning.get("mandatory"):
-        return {"reasoning": {"enabled": False}}, False
-    lowest = min(reasoning["supported_efforts"], key=EFFORTS.index)
-    return {"reasoning": {"effort": lowest}}, True
+        off, efforts = reasoning.get("off"), reasoning.get("efforts", [])
+        field = lambda level: {"reasoning_effort": level}
+    else:
+        off = ({"reasoning": {"enabled": False}}
+               if reasoning and not reasoning.get("mandatory") else None)
+        efforts = sorted(reasoning.get("supported_efforts") or [], key=EFFORTS.index)
+        field = lambda level: {"reasoning": {"effort": level}}
+    if effort:
+        if effort not in efforts:
+            raise ValueError(f"{provider} lists no reasoning effort {effort!r} for this "
+                             f"model (it lists {efforts or 'none'})")
+        return field(effort), True
+    if off:
+        return off, False
+    if efforts:
+        return field(efforts[0]), True
+    if provider == "nvidia":
+        return {}, None
+    return {}, bool(info["reasoning"])
 
 
 def model_info(base_url, model):

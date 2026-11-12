@@ -120,7 +120,7 @@ def run_cli(tmp_path, monkeypatch, *args):
     monkeypatch.setattr(sys, "argv", ["run_games.py", "--players", "dummy", "heuristic",
                                       *args])
     run_games.main()
-    run = tmp_path / "results" / "sandbox" / "dummy" / "run.json"
+    run = tmp_path / "results" / "sandbox" / "dummy_heuristic" / "run.json"
     return json.loads(run.read_text(encoding="utf-8"))["settings"]
 
 

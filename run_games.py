@@ -22,12 +22,13 @@ Switches, each off by default:
     --outcomes            say after the list what each legal move does
     --history N           show the last N moves
     --think               let a thinking model think (off where it can be)
-    --effort high         send a thinking effort level (models that take levels)
+    --effort high         send a reasoning effort level (models that take levels)
     --original-rules      the released LudoBench rules, prompt and reply format
 
-Results go to results/<experiment>/<model>/ (run.json, games.jsonl,
-decisions.jsonl; see decision_log.py), and results/cells.csv lists one row per
-run. Without --experiment and --games a run plays one game into
+Results go to results/<experiment>/<players>/, the players in seat order and
+any effort joined by "_", e.g. qwen3.5-4b_heuristic_effort-low (run.json,
+games.jsonl, decisions.jsonl; see decision_log.py), and results/cells.csv lists
+one row per run. Without --experiment and --games a run plays one game into
 results/sandbox/, so trial games never land in a real experiment. Play against
 a model, or watch a game:
     python run_games.py --players human llm:qwen3:8b
@@ -35,6 +36,7 @@ a model, or watch a game:
 """
 
 import argparse
+import contextlib
 import csv
 import json
 import os
@@ -51,7 +53,7 @@ from llm_backends import (make_llm, parse_spec, check_ollama, model_info, reason
                           thinking_setting, api_model_info, api_reasoning,
                           DEFAULT_SYSTEM_PROMPT, DEFAULT_TIMEOUT, TIMEOUT_RETRIES,
                           DEFAULT_SCHEMA_ORDER, REASON_MAX_CHARS, ANSWER_CEILING,
-                          THINKING_CEILING, ANSWER_CONTEXT, THINKING_CONTEXT,
+                          THINKING_CEILING, API_CEILING, ANSWER_CONTEXT, THINKING_CONTEXT,
                           API_PROVIDERS, API_RETRIES, PROVIDER_DEFAULTS)
 from board_render import render_board, describe_move, group_moves
 from decision_log import (RunLog, GameLog, CONTEXT_MODE, git_state, short_hash,
@@ -293,9 +295,7 @@ class WatchAgent(BaseAgent):
 
     def select_move(self, env, player, dice, legal_moves):
         choice = self.inner.select_move(env, player, dice, legal_moves)
-        print("\n" + "-" * 58)
-        print(f"  P{player} [{self.label}]  rolled {dice}  ->  "
-              f"{describe_move(env, player, dice, choice)}")
+        print(f"  -> {describe_move(env, player, dice, choice)}")
         if self.show_reason:
             reason = getattr(env, "last_llm_reason", "")
             raw = getattr(env, "last_llm_raw", None)
@@ -319,17 +319,41 @@ class WatchAgent(BaseAgent):
 
 
 def attach_watcher(env, labels, delay=0.0):
-    """Redraw the board after every applied move, so what you see is post-move."""
-    original = env.apply_move
+    """
+    Show how the game was started and every roll in order, with whose roll it
+    is, and redraw the board after every applied move, so what you see is
+    post-move. A roll with no legal move says whether the turn passes or, after
+    a 6, the same player rolls again. Display only: nothing here changes the game.
+    """
+    name = lambda pid: f"P{pid} [{labels[pid]}]"
+    if env.roll_off:
+        print("  Roll-off: " + "; then ".join(", ".join(f"P{pid} {d}" for pid, d in rolls)
+                                             for rolls in env.roll_off))
+    print(f"  {name(env.first_player)} moves first")
+    roll, apply_move = env.roll_dice, env.apply_move
+    last = {"n": 0, "player": None, "dice": None}
 
-    def wrapped(player, token_idx, dice):
-        result = original(player, token_idx, dice)
+    def rolled():
+        dice = roll()
+        player = env.player_ids[env.current_player_idx]
+        again = " (another roll after a 6)" if (last["player"], last["dice"]) == (player, 6) else ""
+        last.update(n=last["n"] + 1, player=player, dice=dice)
+        print("\n" + "-" * 58)
+        print(f"  roll {last['n']}: {name(player)} rolled {dice}{again}")
+        if not env.get_legal_moves(player, dice):
+            nxt = env.player_ids[(env.current_player_idx + 1) % env.NUM_PLAYERS]
+            print("  -> no legal move; " + (f"a 6, so P{player} rolls again" if dice == 6
+                                            else f"the turn passes to P{nxt}"))
+        return dice
+
+    def applied(player, token_idx, dice):
+        result = apply_move(player, token_idx, dice)
         render_board(env, highlight=player, labels=labels)
         if delay:
             time.sleep(delay)
         return result
 
-    env.apply_move = wrapped
+    env.roll_dice, env.apply_move = rolled, applied
 
 
 def attach_last_move(env, keep=1):
@@ -454,17 +478,18 @@ def llm_setup(player, original_rules, think, effort, released, requests_per_minu
     """make_llm arguments for an LLM player, and what run.json records about it."""
     provider, model, host = player["provider"], player["model"], player["host"]
     if provider in API_PROVIDERS:
-        if original_rules or think or effort:
-            raise ValueError(f"{player['model_spec']}: --original-rules, --think and "
-                             f"--effort are for Ollama models")
+        if original_rules or think:
+            raise ValueError(f"{player['model_spec']}: --original-rules and --think are for "
+                             f"Ollama models; an API model takes --effort")
         info = api_model_info(provider, model)
         if info["structured_outputs"] is False:
             raise ValueError(f"{provider} lists no structured-output support for {model}")
-        extra, thinks = api_reasoning(provider, info)
+        extra, thinks = api_reasoning(provider, info, effort)
         temperature = None if info["temperature"] is False else 0
         rpm = requests_per_minute or PROVIDER_DEFAULTS[provider]["requests_per_minute"]
-        ceiling = THINKING_CEILING if thinks else ANSWER_CEILING
-        record = {"reasoning": extra, "thinks": thinks, "ceiling": ceiling,
+        ceiling = API_CEILING
+        # "reasoning" holds the reasoning fields sent with every request.
+        record = {"reasoning": extra, "effort": effort, "thinks": thinks, "ceiling": ceiling,
                   "temperature": temperature, "requests_per_minute": rpm}
         return dict(max_tokens=ceiling, stop=None, structured=True,
                     schema_order=DEFAULT_SCHEMA_ORDER, reason_max_chars=REASON_MAX_CHARS,
@@ -538,8 +563,21 @@ def folder_name(spec):
     return name.replace(":", "-").replace("/", "-")
 
 
+def run_folder(specs, effort=None):
+    """
+    A run's folder in its experiment: every player in seat order, and the effort
+    if set, joined by "_". A player name with "_" in it is a ValueError, so a
+    folder name always reads back one way.
+    """
+    names = [folder_name(s) for s in specs]
+    bad = [n for n in names if "_" in n]
+    if bad:
+        raise ValueError(f"player names may not contain '_': {', '.join(bad)}")
+    return "_".join(names + ([f"effort-{effort}"] if effort else []))
+
+
 RESULTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
-CELL_FIELDS = ["experiment", "model", "opponent", "settings", "games_finished", "wins",
+CELL_FIELDS = ["experiment", "run", "model", "opponent", "settings", "games_finished", "wins",
                "win_rate", "invalid_rate", "ollama_version", "cost_usd", "commit"]
 
 
@@ -560,17 +598,49 @@ def cell_results(records, pid, ollama_versions):
             "ollama_version": " ".join(sorted(set(ollama_versions.values())))}
 
 
+@contextlib.contextmanager
+def locked(path, stale_s=60):
+    """
+    Hold the lock file `path` while the block runs, waiting while another
+    process holds it. A lock older than stale_s seconds was left by a process
+    that died holding it, and is taken over.
+    """
+    while True:
+        try:
+            fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            break
+        except FileExistsError:
+            try:
+                if time.time() - os.path.getmtime(path) > stale_s:
+                    os.remove(path)
+            except FileNotFoundError:
+                pass
+            time.sleep(0.05)
+    try:
+        yield
+    finally:
+        os.close(fd)
+        os.remove(path)
+
+
 def update_cells(path, row):
-    """Write `row` into the run table at `path`, replacing that run's earlier row."""
-    rows = []
-    if os.path.exists(path):
-        with open(path, newline="", encoding="utf-8") as f:
-            rows = [r for r in csv.DictReader(f)
-                    if (r["experiment"], r["model"]) != (row["experiment"], row["model"])]
-    with open(path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=CELL_FIELDS)
-        writer.writeheader()
-        writer.writerows(rows + [row])
+    """
+    Write `row` into the run table at `path`, replacing that run's earlier row.
+    Safe for several queues at once: the update holds a lock, and the new table
+    replaces the old one whole, so it is never read half written.
+    """
+    with locked(path + ".lock"):
+        rows = []
+        if os.path.exists(path):
+            with open(path, newline="", encoding="utf-8") as f:
+                rows = [r for r in csv.DictReader(f)
+                        if (r["experiment"], r.get("run")) != (row["experiment"], row["run"])]
+        tmp = f"{path}.{os.getpid()}.tmp"
+        with open(tmp, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=CELL_FIELDS)
+            writer.writeheader()
+            writer.writerows(rows + [row])
+        os.replace(tmp, path)
 
 
 def resume(out_dir, settings, players):
@@ -578,7 +648,9 @@ def resume(out_dir, settings, players):
     (run.json, finished game records) of an earlier run stopped in out_dir, or
     (None, []). Its finished games are kept; the plies of a game it did not
     finish are dropped, so that game restarts from its seed. A folder holding a
-    run with other settings, players or code is refused.
+    run with other settings or players is refused. So is one made by other
+    code, unless it has no finished game to keep (it starts afresh) or none left
+    to play (it is left as it is): one run's games all come from one commit.
     """
     path = os.path.join(out_dir, "run.json")
     if not os.path.exists(path):
@@ -586,15 +658,21 @@ def resume(out_dir, settings, players):
     with open(path, encoding="utf-8") as f:
         meta = json.load(f)
     if ({**meta["settings"], "games": 0} != json.loads(json.dumps({**settings, "games": 0}))
-            or meta["players"] != json.loads(json.dumps(players))
-            or meta["git"]["commit"] != git_state()["commit"]):
-        raise SystemExit(f"{out_dir} holds a run with other settings, players or code; "
+            or meta["players"] != json.loads(json.dumps(players))):
+        raise SystemExit(f"{out_dir} holds a run with other settings or players; "
                          f"choose another --experiment")
     games_path = os.path.join(out_dir, "games.jsonl")
     decisions_path = os.path.join(out_dir, "decisions.jsonl")
     with open(games_path, encoding="utf-8") as f:     # a line cut off by a stop has no newline
         games = [g for g in (json.loads(line) for line in f if line.endswith("\n"))
                  if g["termination_reason"] != "error"]
+    if meta["git"]["commit"] != git_state()["commit"]:
+        if not games:
+            return None, []
+        if len(games) < settings["games"]:
+            raise SystemExit(f"{out_dir} holds an unfinished run made by other code "
+                             f"({meta['git']['commit'][:12]}); choose another --experiment")
+        return meta, games
     finished = {g["game_id"] for g in games}
     with open(decisions_path, encoding="utf-8") as f:
         plies = [line for line in f if line.endswith("\n")
@@ -843,7 +921,7 @@ def main():
     ap.add_argument("--seed0", type=int, default=0, help="first seed; games use seed0..seed0+n-1")
     ap.add_argument("--max-steps", type=int, default=1000)
     ap.add_argument("--experiment", default="sandbox",
-                    help="results go to results/<experiment>/<model>/ (default: sandbox, "
+                    help="results go to results/<experiment>/<players>/ (default: sandbox, "
                          "for trial games)")
     ap.add_argument("--hide-legal-moves", action="store_true",
                     help="leave the legal-move list out of the prompt")
@@ -857,7 +935,8 @@ def main():
                     help="let a thinking model think (by default thinking is off for "
                          "models that can switch it off)")
     ap.add_argument("--effort", choices=["low", "medium", "high"],
-                    help="thinking effort level, for models whose backend takes levels")
+                    help="reasoning effort: Ollama's think level, NVIDIA's reasoning_effort "
+                         "or OpenRouter's reasoning.effort, for models that take it")
     ap.add_argument("--requests-per-minute", type=float, metavar="N",
                     help="pace requests to each API to N per minute (default: NVIDIA 40, "
                          "OpenRouter unpaced)")
@@ -873,6 +952,10 @@ def main():
     specs = args.players
     if len(specs) not in (2, 3, 4):
         ap.error("need 2-4 players")
+    try:
+        folder = run_folder(specs, args.effort)
+    except ValueError as e:
+        ap.error(str(e))
     if args.outcomes and args.hide_legal_moves:
         ap.error("--outcomes needs the legal-move list in the prompt")
     if args.history < 0:
@@ -920,7 +1003,7 @@ def main():
                                       (f"history {args.history}", args.history),
                                       ("think", args.think), (f"effort {args.effort}", args.effort),
                                       ("original-rules", args.original_rules)) if on]
-    out = os.path.join(RESULTS, args.experiment, model)
+    out = os.path.join(RESULTS, args.experiment, folder)
     if git_state()["dirty"]:
         print("WARNING: tracked files have uncommitted changes (recorded in run.json)")
     print(f"\nRunning {args.games} game(s): " + "  vs  ".join(specs))
@@ -936,7 +1019,8 @@ def main():
             effort=args.effort, original_rules=args.original_rules,
             max_steps=args.max_steps, watch=args.watch, delay=args.delay,
             ollama_versions=ollama_versions, requests_per_minute=args.requests_per_minute,
-            cell={"experiment": args.experiment, "model": model, "opponent": opponent,
+            cell={"experiment": args.experiment, "run": os.path.basename(out),
+                  "model": model, "opponent": opponent,
                   "settings": " ".join(f"--{x}" for x in switches) or "standard"})
     except ValueError as e:                          # e.g. a thinking switch the model cannot take
         raise SystemExit(str(e))
