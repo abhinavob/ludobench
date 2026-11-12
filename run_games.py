@@ -3,7 +3,7 @@ Run full Ludo games between LLMs, bots or you, and log every decision.
 
 With no switches a run uses the standard setup: our rules, the JSON reply
 (reason first, at most 500 characters), a 1,024-token ceiling and an Ollama
-context of 8,192 tokens (8,192 and 16,384 when the model thinks), legal moves shown in piece order, no move outcomes, no history.
+context of 8,192 tokens (16,384 and 20,480 when the model thinks), legal moves shown in piece order, no move outcomes, no history.
 
     python run_games.py --players llm:qwen3:8b heuristic
 
@@ -49,8 +49,8 @@ from ludo_env import LudoEnv, STREAMS
 from agents import BaseAgent, RandomAgent, HeuristicAgent
 from llm_agent import LLMAgent
 from evaluation import evaluate
-from llm_backends import (make_llm, parse_spec, check_ollama, model_info, reason_first,
-                          thinking_setting, api_model_info, api_reasoning,
+from llm_backends import (make_llm, parse_spec, check_ollama, model_info, move_object,
+                          reason_first, thinking_setting, api_model_info, api_reasoning,
                           DEFAULT_SYSTEM_PROMPT, DEFAULT_TIMEOUT, TIMEOUT_RETRIES,
                           DEFAULT_SCHEMA_ORDER, REASON_MAX_CHARS, ANSWER_CEILING,
                           THINKING_CEILING, API_CEILING, ANSWER_CONTEXT, THINKING_CONTEXT,
@@ -178,6 +178,7 @@ class TrackedLLMAgent(LLMAgent):
         self.latency_ms = 0.0
         self.cost_usd = 0.0
         self.retries = 0
+        self.timeouts = 0
 
     def _parsed_index(self, text, legal_moves, original_rules):
         """
@@ -233,6 +234,8 @@ class TrackedLLMAgent(LLMAgent):
         c_tok = getattr(call, "last_completion_tokens", None)
         cost = getattr(call, "last_cost", None)
         retries = getattr(call, "last_retries", 0)
+        timeouts = getattr(call, "last_timeouts", 0)
+        obj = move_object(raw or "")
         self.last_decision = {
             "shown_legal_moves": shown if listed else None,
             "chosen_list_position": shown.index(choice) if listed and not fallback else None,
@@ -241,7 +244,8 @@ class TrackedLLMAgent(LLMAgent):
             "raw_reply": raw,
             "parsed_index": parsed,
             "parsed_reason": env.last_llm_reason or None,
-            "reason_chars": len(env.last_llm_reason) if parsed is not None else None,
+            "reason_chars": (None if parsed is None else len(obj["reason"]) if obj
+                             else len(env.last_llm_reason)),
             "reason_first": reason_first(raw or ""),
             "thinking_tokens": getattr(call, "last_thinking_tokens", None),
             "hit_ceiling": why == "length",
@@ -253,6 +257,7 @@ class TrackedLLMAgent(LLMAgent):
             "completion_tokens": c_tok,
             "cost_usd": cost,
             "retries": retries,
+            "timeouts": timeouts,
             "latency_ms": call.last_latency_ms,
             "prompt_hash": short_hash(call.last_prompt),
         }
@@ -263,6 +268,7 @@ class TrackedLLMAgent(LLMAgent):
         self.latency_ms += call.last_latency_ms or 0
         self.cost_usd += cost or 0
         self.retries += retries
+        self.timeouts += timeouts
         _bump(self.finish_reasons, why or "unknown")
         if fallback:
             self.invalid += 1
@@ -278,7 +284,7 @@ class TrackedLLMAgent(LLMAgent):
                 "prompt_tokens": self.prompt_tokens,
                 "completion_tokens": self.completion_tokens,
                 "total_tokens": self.prompt_tokens + self.completion_tokens,
-                "cost_usd": self.cost_usd, "retries": self.retries,
+                "cost_usd": self.cost_usd, "retries": self.retries, "timeouts": self.timeouts,
                 "latency_ms": round(self.latency_ms, 1)}
 
 

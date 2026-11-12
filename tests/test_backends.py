@@ -23,12 +23,14 @@ class FakeOllama(BaseHTTPRequestHandler):
         "levels:1b": {"capabilities": ["completion", "thinking"],
                       "thinking": {"values": ["low", "medium", "high"], "default": "medium"}},
     }
-    chunks = [{"message": {"thinking": "Piece"}}, {"message": {"thinking": " two"}},
-              {"message": {"thinking": " captures."}},
-              {"message": {"content": '{"reason": "capture",'}},
-              {"message": {"content": ' "piece": 2}'}},
-              {"message": {}, "done": True, "done_reason": "stop", "eval_count": 9,
-               "prompt_eval_count": 40}]
+    # With logprobs, one token per chunk; a whitespace token has an empty message.
+    chunks = [{"message": {"thinking": "Piece"}}, {"message": {"content": ""}},
+              {"message": {"thinking": "two"}}, {"message": {"thinking": " captures."}},
+              {"message": {"content": '{"reason": "capture",'}}, {"message": {"content": ""}},
+              {"message": {"content": '"piece": 2}'}}]
+    chunks = [dict(c, logprobs=[{"token": "t", "logprob": 0}]) for c in chunks] + [
+        {"message": {}, "done": True, "done_reason": "stop", "eval_count": 8,
+         "prompt_eval_count": 40}]
     last_chat = None
 
     def log_message(self, *args):
@@ -80,11 +82,11 @@ def test_unreported_thinking_values_come_from_the_table(ollama):
     ("think:1b", {}, (False, False)),                 # off where it can be switched off
     ("think:1b", {"think": True}, (True, True)),
     ("plain:1b", {}, (None, False)),
-    ("deepseek-r1:8b", {}, (None, True)),             # cannot be switched off
+    ("deepseek-r1:8b", {}, (True, True)),             # cannot be switched off
     ("deepseek-r1:8b", {"think": True}, (True, True)),
     ("granite4.2:8b", {}, (False, False)),           # switch not reported, but it works
     ("granite4.2:8b", {"think": True}, (True, True)),
-    ("levels:1b", {}, (None, True)),
+    ("levels:1b", {}, ("low", True)),                 # no off: its lowest level
     ("levels:1b", {"effort": "high"}, ("high", True)),
 ])
 def test_thinking_setting(ollama, model, kw, expected):
@@ -107,16 +109,41 @@ def test_thinking_model_missing_from_the_table_is_an_error():
 
 def test_streamed_reply_counts_thinking_tokens_and_sends_the_settings(ollama):
     host = ollama.split("//")[1]
-    call = make_llm(f"ollama_native://{host}/think:1b", max_tokens=8192, stop=None,
-                    think=True, num_ctx=16384, structured=True, reason_max_chars=500)
-    assert call("prompt") == '{"reason": "capture", "piece": 2}'
-    assert call.last_thinking_tokens == 3 and call.last_reasoning == "Piece two captures."
-    assert call.last_completion_tokens == 9 and call.last_finish_reason == "stop"
+    call = make_llm(f"ollama_native://{host}/think:1b", max_tokens=16384, stop=None,
+                    think=True, num_ctx=20480, structured=True, reason_max_chars=500)
+    assert call("prompt") == '{"reason": "capture","piece": 2}'
+    assert call.last_thinking_tokens == 4 and call.last_reasoning == "Piecetwo captures."
+    assert call.last_completion_tokens == 8 and call.last_finish_reason == "stop"
     sent = FakeOllama.last_chat
-    assert sent["stream"] and sent["think"] is True
-    assert sent["options"]["num_predict"] == 8192 and sent["options"]["num_ctx"] == 16384
+    assert sent["stream"] and sent["logprobs"] and sent["think"] is True
+    assert sent["options"]["num_predict"] == 16384 and sent["options"]["num_ctx"] == 20480
     assert list(sent["format"]["properties"]) == ["reason", "piece"]
     assert sent["format"]["properties"]["reason"]["maxLength"] == 500
+
+
+TOKEN = [{"token": "t", "logprob": 0}]
+
+
+@pytest.mark.parametrize("chunks, thinking", [
+    ([{"message": {"content": ""}, "logprobs": TOKEN},
+      {"message": {"content": "{}"}, "logprobs": TOKEN}], 0),               # did not think
+    ([{"message": {"thinking": "a"}, "logprobs": TOKEN},
+      {"message": {"content": ""}, "logprobs": TOKEN},
+      {"message": {"thinking": "b"}, "logprobs": TOKEN}], 3),               # cut off thinking
+    ([{"message": {"thinking": "a"}}, {"message": {"content": "{}"}}], None),  # no logprobs
+])
+def test_thinking_tokens_are_every_token_before_the_answer(ollama, monkeypatch, chunks, thinking):
+    monkeypatch.setattr(FakeOllama, "chunks", chunks + [{"message": {}, "done": True}])
+    call = make_llm(f"ollama_native://{ollama.split('//')[1]}/think:1b", stop=None, think=True)
+    call("prompt")
+    assert call.last_thinking_tokens == thinking
+
+
+@pytest.mark.parametrize("think, logprobs", [(True, True), ("low", True), (False, None),
+                                              (None, None)])
+def test_logprobs_are_asked_for_only_when_thinking_is_on(ollama, think, logprobs):
+    make_llm(f"ollama_native://{ollama.split('//')[1]}/think:1b", stop=None, think=think)("p")
+    assert FakeOllama.last_chat.get("logprobs") is logprobs
 
 
 def thinking_model(ollama):
@@ -127,7 +154,10 @@ def thinking_model(ollama):
 def test_timeouts_are_retried_twice(ollama, failing_urlopen):
     failing_urlopen(TimeoutError(), TimeoutError())
     call = thinking_model(ollama)
-    assert call("prompt") == '{"reason": "capture", "piece": 2}' and call.last_retries == 2
+    assert call("prompt") == '{"reason": "capture","piece": 2}' and call.last_retries == 2
+    assert call.last_timeouts == 2
+    call("prompt")
+    assert (call.last_retries, call.last_timeouts) == (0, 0)
 
 
 def test_reply_still_streaming_at_the_timeout_stops_the_run_after_two_retries(ollama, monkeypatch):
@@ -164,8 +194,10 @@ def decide(reply, **kw):
 
 
 def test_decision_log_records_reply_size_thinking_and_time():
-    d = decide(Reply('{"reason": "bring one out", "piece": 1}'))
-    assert d["reason_chars"] == len("bring one out") and d["completion_tokens"] == 130
+    d = decide(Reply('{"reason": "bring  one\\nout", "piece": 1}'))
+    assert d["parsed_reason"] == "bring one out"
+    assert d["reason_chars"] == len("bring  one\nout")         # as written
+    assert d["completion_tokens"] == 130 and (d["retries"], d["timeouts"]) == (0, 0)
     assert d["reason_first"] is True
     assert d["thinking_tokens"] == 120 and d["hit_ceiling"] is False
     assert d["latency_ms"] is not None and not d["was_fallback"]
@@ -183,8 +215,8 @@ def test_decision_log_records_the_shown_list_and_chosen_position(reply, kw, show
 
 
 def test_reply_cut_off_at_the_ceiling_is_invalid_and_keeps_its_thinking_length():
-    d = decide(Reply("", finish="length", thinking_tokens=8192, output_tokens=8192))
-    assert d["was_fallback"] and d["hit_ceiling"] and d["thinking_tokens"] == 8192
+    d = decide(Reply("", finish="length", thinking_tokens=16384, output_tokens=16384))
+    assert d["was_fallback"] and d["hit_ceiling"] and d["thinking_tokens"] == 16384
     assert d["reason_chars"] is None and d["reason_first"] is None
 
 

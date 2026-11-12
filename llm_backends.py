@@ -63,14 +63,16 @@ API_RETRIES = 8            # rate-limit and server errors, with backoff up to 2 
 
 # Output-token ceilings (Ollama's num_predict; thinking counts towards it).
 ANSWER_CEILING = 1024
-THINKING_CEILING = 8192    # provisional; set from analysis/measure_thinking.py
+# At 8,192, 7 of 42 thinking replies in the pilot (qwen3.5:9b) ran out of tokens
+# before answering.
+THINKING_CEILING = 16384
 # Every API model gets the thinking ceiling: an API does not always say whether
 # a model reasons, and some cannot stop.
 API_CEILING = THINKING_CEILING
 # Ollama context windows (num_ctx), sent with every request so a server default
 # cannot change them; a thinking reply needs room for its ceiling.
 ANSWER_CONTEXT = 8192
-THINKING_CONTEXT = 16384
+THINKING_CONTEXT = 20480
 
 # Thinking settings Ollama does not report, by model name without its tag. For
 # these models /api/show lists "thinking" among the capabilities but gives no
@@ -277,7 +279,8 @@ def thinking_setting(model, info, think=False, effort=None):
     """
     (value for Ollama's "think" field, or None to leave it out; whether the
     model will think). By default thinking is off where the model can switch it
-    off; think=True turns it on; effort sends a level such as "high".
+    off, else at its lowest level, as for API models; think=True turns it on;
+    effort sends a level such as "high".
     """
     if "thinking" not in info["capabilities"]:
         if think or effort:
@@ -294,34 +297,38 @@ def thinking_setting(model, info, think=False, effort=None):
         return effort, True
     if think:
         return (True if True in values else None), True
-    return (False, False) if False in values else (None, True)
+    if False in values:
+        return False, False
+    levels = sorted((v for v in values if isinstance(v, str)), key=EFFORTS.index)
+    return (levels[0] if levels else True), True
 
 
-def parse_move_json(content):
-    """
-    Read {"reason": str, "piece": int} from a JSON reply.
-    Returns (piece, reason), or None if the reply is not that shape.
-    """
+def move_object(content):
+    """The {"reason": str, "piece": int} object of a JSON reply, or None if it is not one."""
     try:
         obj = json.loads(content)
     except ValueError:
         return None
     if not isinstance(obj, dict):
         return None
-    piece = obj.get("piece")
-    if not isinstance(piece, int) or isinstance(piece, bool):
+    piece, reason = obj.get("piece"), obj.get("reason")
+    if not isinstance(piece, int) or isinstance(piece, bool) or not isinstance(reason, str):
         return None
-    reason = obj.get("reason")
-    if not isinstance(reason, str):
-        return None
-    return piece, " ".join(reason.split())             # one line
+    return obj
+
+
+def parse_move_json(content):
+    """(piece, reason on one line) from a JSON reply, or None if it is not that shape."""
+    obj = move_object(content)
+    return None if obj is None else (obj["piece"], " ".join(obj["reason"].split()))
 
 
 def reason_first(content):
     """Whether "reason" comes before "piece" in a valid JSON reply; None if not one."""
-    if parse_move_json(content) is None:
+    obj = move_object(content)
+    if obj is None:
         return None
-    keys = list(json.loads(content))
+    keys = list(obj)
     return keys.index("reason") < keys.index("piece")
 
 
@@ -377,13 +384,15 @@ def make_llm(spec,
                           token counts the server reported, or None; the
                           completion (output) tokens include any thinking
       last_thinking_tokens
-                          ollama_native: tokens streamed as thinking (one
-                          chunk per token); an API: the reasoning tokens it
+                          ollama_native: tokens streamed before the answer
+                          when the model thought (None if the server sent no
+                          logprobs), else 0; an API: the reasoning tokens it
                           reported, or None
       last_cost           US dollars the call cost (OpenRouter's figure; 0 on
                           NVIDIA and Ollama)
       last_served_by      the upstream provider OpenRouter routed to, or None
       last_retries        failed attempts retried for this call
+      last_timeouts       how many of those were not answered in time
     and, fixed: spec, provider, base_url.
     """
     if spec == "dummy":
@@ -485,7 +494,7 @@ def _make_api(spec, provider, model, base_url, max_tokens, stop, temperature,
         call.last_thinking_tokens = call.last_cost = None
         timeouts = 0
         for attempt in range(retries):
-            call.last_retries = attempt
+            call.last_retries, call.last_timeouts = attempt, timeouts
             _pace(base_url, requests_per_minute)
             wait = min(retry_wait * 2 ** attempt, 120)
             try:
@@ -539,7 +548,7 @@ def _make_api(spec, provider, model, base_url, max_tokens, stop, temperature,
     call.last_content = ""
     call.last_prompt_tokens = call.last_completion_tokens = None
     call.last_thinking_tokens = call.last_cost = None
-    call.last_retries = 0
+    call.last_retries = call.last_timeouts = 0
     return call
 
 
@@ -549,8 +558,11 @@ def _make_ollama_native(spec, model, base_url, max_tokens, stop, temperature,
     """
     Call Ollama's native /api/chat. Its /v1 OpenAI-compatible endpoint ignores
     "think", so this is the only way to switch a thinking model's reasoning off.
-    The reply is streamed, one token per chunk, to count the thinking tokens;
-    the timeout bounds the whole reply. Uses urllib (no extra dependency).
+    The reply is streamed; with thinking on it asks for logprobs, which give
+    each token its own chunk (without them Ollama leaves whitespace-only tokens
+    out of the stream, 12-16% of the thinking tokens in our checks), and the
+    thinking tokens are those streamed before the answer's first text. The
+    timeout bounds the whole reply. Uses urllib (no extra dependency).
     """
     import urllib.error
     import urllib.request
@@ -575,6 +587,8 @@ def _make_ollama_native(spec, model, base_url, max_tokens, stop, temperature,
                    "options": options}
         if think is not None:
             payload["think"] = think
+        if think:                                 # True or a level
+            payload["logprobs"] = True
         if structured:
             payload["format"] = schema
 
@@ -586,10 +600,11 @@ def _make_ollama_native(spec, model, base_url, max_tokens, stop, temperature,
         call.last_thinking_tokens = None
         last_err, timeouts = None, 0
         for attempt in range(retries):
-            call.last_retries = attempt
+            call.last_retries, call.last_timeouts = attempt, timeouts
             try:
                 deadline = time.monotonic() + timeout
                 thinking, content, done = [], [], {}
+                before_answer, answering = 0, False   # tokens before the answer
                 with urllib.request.urlopen(req, timeout=timeout) as resp:
                     for line in resp:
                         chunk = json.loads(line)
@@ -599,6 +614,9 @@ def _make_ollama_native(spec, model, base_url, max_tokens, stop, temperature,
                         if msg.get("thinking"):
                             thinking.append(msg["thinking"])
                         content.append(msg.get("content") or "")
+                        answering = answering or bool(content[-1])
+                        if not answering:
+                            before_answer += len(chunk.get("logprobs") or ())
                         if chunk.get("done"):
                             done = chunk
                         elif time.monotonic() > deadline:
@@ -606,7 +624,8 @@ def _make_ollama_native(spec, model, base_url, max_tokens, stop, temperature,
                 call.last_finish_reason = done.get("done_reason")
                 call.last_prompt_tokens = done.get("prompt_eval_count")
                 call.last_completion_tokens = done.get("eval_count")
-                call.last_thinking_tokens = len(thinking)
+                # None if the server sent no logprobs to count with.
+                call.last_thinking_tokens = (before_answer or None) if thinking else 0
                 # Same contract as the /v1 path: reasoning is display-only.
                 call.last_reasoning = "".join(thinking).strip()
                 call.last_content = "".join(content).strip()
@@ -637,5 +656,5 @@ def _make_ollama_native(spec, model, base_url, max_tokens, stop, temperature,
     call.last_content = ""
     call.last_prompt_tokens = call.last_completion_tokens = None
     call.last_thinking_tokens = None
-    call.last_cost, call.last_retries = 0, 0
+    call.last_cost, call.last_retries, call.last_timeouts = 0, 0, 0
     return call

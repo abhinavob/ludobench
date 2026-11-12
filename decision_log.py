@@ -69,15 +69,18 @@ DEFINITIONS = {
                             "shown_legal_moves; null for an invalid reply or an "
                             "unlisted list",
     "parsed_index": "the index the reply parser read, legal or not; null if none",
-    "reason_chars": "length in characters of the parsed reason; null if no reply "
-                    "was parsed",
+    "reason_chars": "length in characters of the reason as the model wrote it (a "
+                    "JSON reply's reason string, before line breaks and repeated "
+                    "spaces are collapsed for parsed_reason); null if no reply was "
+                    "parsed",
     "reason_first": "in a valid JSON reply, the reason came before the piece in "
                     "the raw text (not every model keeps the schema's order); "
                     "null for any other reply",
     "completion_tokens": "output tokens the server reported, thinking included",
-    "thinking_tokens": "tokens the model streamed as thinking (Ollama native, one "
-                       "chunk per token), or the reasoning tokens an API reported; "
-                       "null if not counted",
+    "thinking_tokens": "Ollama native: the tokens streamed before the answer's first "
+                       "text when the model thought, else 0, counted from the "
+                       "stream's logprobs (one per token, whitespace included); an "
+                       "API: the reasoning tokens it reported; null if not counted",
     "provider": "who served the model: ollama_native, openrouter or nvidia",
     "served_by": "the upstream provider OpenRouter routed the request to; null "
                  "on Ollama and NVIDIA",
@@ -86,6 +89,8 @@ DEFINITIONS = {
     "retries": "failed attempts retried before the reply (rate limits, server "
                "errors, timeouts, dropped connections, cut-off bodies); they do "
                "not make the reply invalid",
+    "timeouts": "how many of those retries were requests not answered within "
+                "request_timeout_s; after timeout_retries of them the run stops",
     "hit_ceiling": "the reply stopped at the output-token ceiling (finish_reason "
                    "length); a reply cut off there is invalid",
     "latency_ms": "wall-clock time of the model call, the response time",
@@ -404,7 +409,7 @@ class GameLog:
             "fallback_cause": None, "prompt_tokens": None, "completion_tokens": None,
             "reason_chars": None, "reason_first": None, "thinking_tokens": None, "hit_ceiling": None,
             "provider": None, "served_by": None, "cost_usd": None, "retries": None,
-            "latency_ms": None, "prompt_hash": None}
+            "timeouts": None, "latency_ms": None, "prompt_hash": None}
 
     def _record(self, before):
         env, pre = self.env, self._pre

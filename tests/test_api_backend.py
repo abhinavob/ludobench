@@ -185,6 +185,7 @@ def test_timeouts_and_cut_off_or_broken_bodies_are_retried_and_not_invalid(api, 
     call = standard("llm:openrouter/plain/model")
     assert call("prompt") == '{"reason": "safe square", "piece": 0}'
     assert call.last_retries == 3 and len(FakeAPI.requests) == 3
+    assert call.last_timeouts == 1
     err = capsys.readouterr().err
     assert "no reply within" in err and "IncompleteRead" in err and "Expecting value" in err
 
@@ -232,14 +233,14 @@ def test_run_with_an_api_player_logs_provider_tokens_and_cost(api, tmp_path, mon
     run = json.loads((folder / "run.json").read_text(encoding="utf-8"))
     player = run["players"]["0"]
     assert player["reasoning"] == {"reasoning": {"effort": "minimal"}} and player["thinks"]
-    assert player["ceiling"] == 8192 and player["temperature"] == 0     # cannot reason less
-    assert all(r["body"]["max_tokens"] == 8192 for r in FakeAPI.requests)
+    assert player["ceiling"] == 16384 and player["temperature"] == 0     # cannot reason less
+    assert all(r["body"]["max_tokens"] == 16384 for r in FakeAPI.requests)
     plies = [json.loads(line) for line in (folder / "decisions.jsonl").open(encoding="utf-8")]
     calls = [p for p in plies if p["provider"] == "openrouter"]
     assert calls and all(p["served_by"] == "DeepInfra" and p["cost_usd"] == 0.0012
                          and p["thinking_tokens"] == 5 and p["reason_first"]
                          and p["reason_chars"] == len("safe square") and p["retries"] == 0
-                         and p["hit_ceiling"] is False for p in calls)
+                         and p["timeouts"] == 0 and p["hit_ceiling"] is False for p in calls)
     assert run["cost_usd"] == pytest.approx(0.0012 * len(calls))
     row, = csv.DictReader(open(tmp_path / "results" / "cells.csv", encoding="utf-8"))
     assert float(row["cost_usd"]) == pytest.approx(0.0012 * len(calls), abs=1e-4)
@@ -252,7 +253,7 @@ def test_every_api_model_gets_the_thinking_ceiling_and_its_effort_is_recorded(ap
                          ("llm:nvidia/openai/gpt-oss-20b", "high")):
         player = run_games.player_info([spec, "heuristic"], [0, 2])[0]
         kwargs, record = run_games.llm_setup(player, False, False, effort, run_games.RELEASED)
-        assert kwargs["max_tokens"] == record["ceiling"] == 8192 and record["effort"] == effort
+        assert kwargs["max_tokens"] == record["ceiling"] == 16384 and record["effort"] == effort
         assert record["reasoning"] == kwargs["extra_body"]
 
 

@@ -139,10 +139,11 @@ def test_run_json_records_commit_and_model_version(cli):
 
 def test_think_turns_thinking_on_with_the_thinking_ceiling_and_context(cli):
     run, calls, _ = cli("--players", "llm:m:1b", "heuristic", "--think")
-    assert calls[0]["think"] is True and calls[0]["max_tokens"] == 8192
-    assert calls[0]["num_ctx"] == 16384
-    assert (run["players"]["0"]["ceiling"], run["players"]["0"]["num_ctx"]) == (8192, 16384)
-    assert run["settings"]["contexts"] == {"answer": 8192, "thinking": 16384}
+    assert calls[0]["think"] is True and calls[0]["max_tokens"] == 16384
+    assert calls[0]["num_ctx"] == 20480
+    assert (run["players"]["0"]["ceiling"], run["players"]["0"]["num_ctx"]) == (16384, 20480)
+    assert run["settings"]["contexts"] == {"answer": 8192, "thinking": 20480}
+    assert run["settings"]["ceilings"] == {"answer": 1024, "thinking": 16384}
 
 
 def test_effort_level_on_a_model_without_levels_is_an_error(cli):
