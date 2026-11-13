@@ -248,6 +248,8 @@ def test_move_outcome_flags():
     assert capture["captures"] == [(2, 0)] and not capture["safe"]
     assert safe["safe"] and safe["to"] == 8
     assert R.move_outcome(tokens, 0, 2, 6)["bring_out"]
+    assert not finish["home_entry"] and not capture["home_entry"]      # inside the home path, on the track
+    assert R.move_outcome(board(p0=[49, -1, -1, -1]), 0, 0, 3)["home_entry"]
 
 
 # ---------- original rules ----------

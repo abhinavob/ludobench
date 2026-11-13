@@ -111,12 +111,17 @@ def legal_moves(tokens, player, dice, original=False):
 
 
 def move_outcome(tokens, player, token_idx, dice, original=False):
-    """What moving this piece does, read from the position before the move."""
+    """
+    What moving this piece does, read from the position before the move.
+    in_home: it ends in the home path; home_entry: it goes from the track into
+    the home path (a move inside the home path is not one).
+    """
     old = tokens[player][token_idx]
     to = destination(player, old, dice, original)
     return {"from": old, "to": to, "captures": captures(tokens, player, to),
             "bring_out": old == BASE, "safe": to in SAFE_SQUARES,
-            "in_home": to >= BOARD_SIZE, "home_finish": to == home_range(player)[1]}
+            "in_home": to >= BOARD_SIZE, "home_entry": 0 <= old < BOARD_SIZE <= to,
+            "home_finish": to == home_range(player)[1]}
 
 
 def apply_move(tokens, player, token_idx, dice, original=False):
