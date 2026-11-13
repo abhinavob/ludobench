@@ -117,7 +117,33 @@ DEFINITIONS = {
     "taken_vs_available": "per player and availability kind: *_available counts "
                           "decisions where some legal move achieved it; *_taken "
                           "counts those where the chosen move did",
+    "choice_rates": "over decisions with a valid reply (or a bot's move): per kind, "
+                    "those where a legal move had it and those where the chosen "
+                    "move did. capture, home_entry and finish (home_finish) as in "
+                    "availability; safe: a safe landing that is not a bring-out; "
+                    "open: a bring-out",
 }
+
+# The tokens of each choice-rate kind, from a decision's availability.
+RATE_KINDS = {
+    "capture": lambda a: a["capture"]["tokens"],
+    "safe": lambda a: [t for t in a["safe"]["tokens"] if t not in a["bring_out"]["tokens"]],
+    "open": lambda a: a["bring_out"]["tokens"],
+    "home_entry": lambda a: a["home_entry"]["tokens"],
+    "finish": lambda a: a["home_finish"]["tokens"],
+}
+
+
+def choice_rates(records):
+    """Per RATE_KINDS kind: decisions offering it, decisions choosing it, and the rate (see DEFINITIONS)."""
+    valid = [r for r in records if r["chosen_index"] is not None and not r["was_fallback"]]
+    out = {}
+    for kind, tokens in RATE_KINDS.items():
+        offered = [r for r in valid if tokens(r["availability"])]
+        taken = sum(r["chosen_index"] in tokens(r["availability"]) for r in offered)
+        out[kind] = {"available": len(offered), "taken": taken,
+                     "rate": taken / len(offered) if offered else None}
+    return out
 
 
 def short_hash(text):
@@ -303,10 +329,13 @@ def ollama_num_ctx(base_url, model, timeout=3):
 # ---------- writers ----------
 
 class RunLog:
-    """Owns a run's folder and its three files; `resumed` continues a stopped run."""
+    """
+    Owns a run's folder and its files; `resumed` continues a stopped run. A run
+    of spots (games=False) has no games.jsonl and no game counts.
+    """
 
     def __init__(self, out_dir, run_id, players, settings, config, ollama_versions,
-                 env, resumed=None):
+                 env, resumed=None, games=True):
         os.makedirs(out_dir, exist_ok=True)
         self.dir = out_dir
         self.run_id = run_id
@@ -316,7 +345,8 @@ class RunLog:
         mode = "a" if resumed else "w"
         self._decisions = open(os.path.join(out_dir, "decisions.jsonl"), mode,
                                encoding="utf-8")
-        self._games = open(os.path.join(out_dir, "games.jsonl"), mode, encoding="utf-8")
+        self._games = (open(os.path.join(out_dir, "games.jsonl"), mode, encoding="utf-8")
+                       if games else None)
         if resumed:
             self.meta = resumed
             self.meta.setdefault("resumed_at", []).append(time.strftime("%Y-%m-%dT%H:%M:%S"))
@@ -351,6 +381,8 @@ class RunLog:
             "cost_usd": 0.0,
             "definitions": DEFINITIONS,
         }
+        if not games:
+            del self.meta["games"]
         self.write_meta()
 
     def write_meta(self):
@@ -390,7 +422,8 @@ class RunLog:
         self.meta["finished_at"] = time.strftime("%Y-%m-%dT%H:%M:%S")
         self.write_meta()
         self._decisions.close()
-        self._games.close()
+        if self._games:
+            self._games.close()
 
 
 def _new_player_stats():

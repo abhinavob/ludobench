@@ -1,0 +1,239 @@
+"""
+Ask an LLM for its move in each spot and log every decision as games do.
+
+    python run_spots.py --player llm:qwen3:8b --experiment spots
+
+Each spot of the folder (default spots_40_repaired/, see repair_spots.py) is
+asked twice, with the legal-move list hidden and shown (--legal), with the
+standard prompt and reply settings of run_games.py. A grudge spot carries its
+history paragraph (neutral or grudge); --persona adds one of the persona
+instructions of run_all_spots.py, off by default.
+
+Results go to results/<experiment>/<player>[_persona-NAME]/: run.json and
+decisions.jsonl, one record per spot and condition with the fields of a game's
+decisions.jsonl (see decision_log.py) and the spot's own (SPOT_DEFINITIONS).
+A stopped run resumes where it stopped, under the rules of run_games.py.
+"""
+import argparse
+import ast
+import glob
+import json
+import os
+import sys
+
+import ludo_rules as rules
+from agents import HeuristicAgent
+from board_render import group_moves
+from decision_log import (RunLog, DEFINITIONS, NO_MODEL, analyse, move_fields, decision_record,
+                          snapshot, git_state, choice_rates)
+from game_theory_multiplayer_agent import GameTheoryMultiplayerAgent
+from ludo_env import random_streams
+from run_games import (RELEASED, RESULTS, build_agent, check_llm_players, decision_config,
+                       earlier_run, is_llm_spec, llm_setup, player_info, reply_settings,
+                       reply_setup, run_folder)
+from spot_evaluation import SpotEnv
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ORIGINAL_SPOTS = os.path.join(HERE, "spots_40")
+DEFAULT_SPOTS = os.path.join(HERE, "spots_40_repaired")
+CONDITIONS = {"hidden": False, "shown": True}          # name -> legal-move list in the prompt
+SEARCH_DEPTH = 2                                        # as run_all_spots_gt.py
+
+SPOT_DEFINITIONS = {
+    "spot_id": "the spot's id in its file; game_id and seed are null for a spot",
+    "spots_folder": "the folder the spot was read from",
+    "spot_changed": "the spot's tokens differ from spots_40/ (a repaired spot)",
+    "pair_id": "grudge spots: the id shared by the two halves of a pair; else null",
+    "history": "grudge spots: 'neutral' or 'grudge', the history paragraph the prompt "
+               "carries (as written in the spot); else null",
+    "persona": "the persona instruction's name, null if none",
+    "search_move": f"GameTheoryMultiplayerAgent(search_depth={SEARCH_DEPTH})'s choice",
+    "move_groups": "the legal tokens grouped by identical outcome (board_render.group_moves)",
+}
+
+
+def persona_texts(path=os.path.join(HERE, "run_all_spots.py")):
+    """PERSONA_TEXTS of run_all_spots.py, read without importing it (it builds an API client)."""
+    with open(path, encoding="utf-8") as f:
+        for node in ast.parse(f.read()).body:
+            if isinstance(node, ast.Assign) and any(getattr(t, "id", None) == "PERSONA_TEXTS"
+                                                    for t in node.targets):
+                return ast.literal_eval(node.value)
+    raise ValueError(f"no PERSONA_TEXTS in {path}")
+
+
+def load_spots(folder):
+    """The spots of a folder in file order."""
+    return [s for f in sorted(glob.glob(os.path.join(folder, "spots_*.json")))
+            for s in json.load(open(f, encoding="utf-8"))]
+
+
+def board(spot):
+    return {int(p): list(t) for p, t in spot["tokens"].items()}
+
+
+def spot_fields(spot, folder, original, persona):
+    grudge = spot["scenario"] == "grudge"
+    return {"spot_id": spot["id"], "spots_folder": os.path.basename(os.path.normpath(folder)),
+            "spot_changed": spot["tokens"] != original.get(spot["id"], spot)["tokens"],
+            "pair_id": spot["id"].rsplit("_", 1)[0] if grudge else None,
+            "history": ("neutral" if spot["id"].endswith("_a") else "grudge") if grudge else None,
+            "persona": persona}
+
+
+def ask(agent, spot, shown, persona_text, search):
+    """(pre, chosen, env after the move, model fields) for one spot and condition."""
+    p, d = spot["current_player"], spot["dice"]
+    env = SpotEnv(spot["players"], board(spot))
+    env.rng = random_streams(f"{spot['id']}:{'shown' if shown else 'hidden'}")   # invalid-reply fallback
+    env.history_text = spot.get("history_text")
+    env.persona_text = persona_text
+    pre = analyse(env, p, d, HeuristicAgent())
+    pre["search_move"] = search.select_move(env, p, d, pre["legal"])
+    pre["move_groups"] = group_moves(env, p, d, pre["legal"])
+    agent.include_legal_moves_in_prompt = shown
+    chosen = agent.select_move(env, p, d, pre["legal"])
+    model = agent.last_decision or NO_MODEL
+    after, _ = rules.apply_move(env.tokens, p, chosen, d)
+    return pre, chosen, SpotEnv(spot["players"], after), model
+
+
+def resume_spots(out_dir, settings, players, todo):
+    """
+    (run.json, the (spot_id, legal shown) pairs done) of an earlier run in
+    out_dir, or (None, set()). As with games: a run with other settings or
+    players is refused, and so is an unfinished one made by other code unless
+    it has nothing done yet (it starts afresh).
+    """
+    meta = earlier_run(out_dir, settings, players)
+    if meta is None:
+        return None, set()
+    path = os.path.join(out_dir, "decisions.jsonl")
+    with open(path, encoding="utf-8") as f:            # a line cut off by a stop has no newline
+        lines = [line for line in f if line.endswith("\n")]
+    done = {(r["spot_id"], r["config"]["legal_moves_shown"]) for r in map(json.loads, lines)}
+    if meta["git"]["commit"] != git_state()["commit"]:
+        if not done:
+            return None, set()
+        if not todo <= done:
+            raise SystemExit(f"{out_dir} holds an unfinished run made by other code "
+                             f"({meta['git']['commit'][:12]}); choose another --experiment")
+    with open(path, "w", encoding="utf-8") as f:
+        f.writelines(lines)
+    return meta, done
+
+
+def run_spots(spec, out_dir, folder=DEFAULT_SPOTS, legal=("hidden", "shown"), persona=None,
+              think=False, effort=None, requests_per_minute=None, ollama_versions=None):
+    """Ask every spot of `folder` in each `legal` condition; return the run's records."""
+    spots = load_spots(folder)
+    original = {s["id"]: s for s in load_spots(ORIGINAL_SPOTS)}
+    persona_text = persona_texts()[persona] if persona else None
+    players = player_info([spec], [0])
+    llm_kwargs, record = llm_setup(players[0], False, think, effort, RELEASED, requests_per_minute)
+    players[0].update(record)
+    reply = reply_setup(False, think, RELEASED)
+    settings = {"spots_folder": os.path.basename(os.path.normpath(folder)), "spots": len(spots),
+                "legal_moves": list(legal), "persona": persona, "persona_text": persona_text,
+                "search_player": f"gt(d={SEARCH_DEPTH})", "original_rules": False,
+                **reply_settings(reply, think, effort, False)}
+    configs = {c: decision_config(reply, think, effort, False, CONDITIONS[c]) for c in legal}
+    todo = {(s["id"], CONDITIONS[c]) for s in spots for c in legal}
+    meta, done = resume_spots(out_dir, settings, players, todo)
+    if done:
+        print(f"  {len(done & todo)} of {len(todo)} spot prompts already asked")
+    if todo <= done:
+        return read_records(out_dir)
+    run = RunLog(out_dir, os.path.basename(os.path.normpath(out_dir)), players, settings,
+                 dict(configs[legal[0]], legal_moves_shown=[CONDITIONS[c] for c in legal]),
+                 ollama_versions or {}, SpotEnv(range(4), {}), resumed=meta, games=False)
+    run.meta["definitions"] = {**DEFINITIONS, **SPOT_DEFINITIONS}
+    run.write_meta()
+    agent, _ = build_agent(spec, llm_kwargs, None, True, False, 0, False, "ascending")
+    search = GameTheoryMultiplayerAgent(search_depth=SEARCH_DEPTH)
+    info = players[0]
+    try:
+        for n, spot in enumerate(spots, 1):
+            for c in legal:
+                if (spot["id"], CONDITIONS[c]) in done:
+                    continue
+                pre, chosen, after, model = ask(agent, spot, CONDITIONS[c], persona_text, search)
+                p = spot["current_player"]
+                config = dict(configs[c], num_ctx=run.num_ctx(0, model["raw_reply"] is not None))
+                rec = decision_record(
+                    {"run_id": run.run_id, "game_id": None, "seed": None, "ply": 0, "turn_number": 0,
+                     "player_id": p, "seat_position": spot["players"].index(p),
+                     "model_spec": info["model_spec"], "host": info["host"], "skipped": False},
+                    snapshot(SpotEnv(spot["players"], board(spot))), after, pre,
+                    move_fields(after, pre, chosen), model, config)
+                rec.update(spot_fields(spot, folder, original, persona),
+                           search_move=pre["search_move"], move_groups=pre["move_groups"])
+                run.write_decision(rec)
+                print(f"  {n}/{len(spots)} {spot['id']} {c}: piece {chosen}"
+                      + (" (invalid reply)" if model["was_fallback"] else ""))
+    finally:
+        run.close()
+    return read_records(out_dir)
+
+
+def read_records(out_dir):
+    with open(os.path.join(out_dir, "decisions.jsonl"), encoding="utf-8") as f:
+        return [json.loads(line) for line in f]
+
+
+def summarise(records):
+    """Invalid replies, agreement with the search player and choice rates, per condition."""
+    for shown in (False, True):
+        rs = [r for r in records if r["config"]["legal_moves_shown"] is shown]
+        if not rs:
+            continue
+        valid = [r for r in rs if not r["was_fallback"]]
+        agree = sum(r["chosen_index"] == r["search_move"] for r in valid)
+        print(f"\nlegal moves {'shown' if shown else 'hidden'}: {len(rs)} spots, "
+              f"invalid {len(rs) - len(valid)}, agrees with the search player "
+              f"{agree}/{len(valid)}")
+        for kind, x in choice_rates(rs).items():
+            if x["available"]:
+                print(f"  {kind:<11}{x['taken']:>4}/{x['available']:<4} {x['rate']:.0%}")
+
+
+def main():
+    names = sorted(k for k in persona_texts() if k != "none")
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0].strip())
+    ap.add_argument("--player", required=True, metavar="LLM",
+                    help="llm:MODEL, llm://HOST[:PORT]/MODEL, llm:openrouter/MODEL or llm:nvidia/MODEL")
+    ap.add_argument("--spots", default=DEFAULT_SPOTS, help="spot folder (default: spots_40_repaired)")
+    ap.add_argument("--legal", choices=["both", *CONDITIONS], default="both",
+                    help="ask with the legal-move list hidden, shown, or both (default)")
+    ap.add_argument("--persona", choices=names, help="add this persona instruction (default: none)")
+    ap.add_argument("--think", action="store_true", help="let a thinking model think")
+    ap.add_argument("--effort", choices=["low", "medium", "high"], help="reasoning effort level")
+    ap.add_argument("--requests-per-minute", type=float, metavar="N", help="pace API requests")
+    ap.add_argument("--experiment", default="sandbox",
+                    help="results go to results/<experiment>/<player>[_persona-NAME]/")
+    args = ap.parse_args()
+    if not is_llm_spec(args.player):
+        ap.error("--player must be an LLM")
+    try:
+        folder = run_folder([args.player], args.effort)
+    except ValueError as e:
+        ap.error(str(e))
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    ollama_versions = check_llm_players(ap, {0: args.player})
+    out = os.path.join(RESULTS, args.experiment,
+                       folder + (f"_persona-{args.persona}" if args.persona else ""))
+    if git_state()["dirty"]:
+        print("WARNING: tracked files have uncommitted changes (recorded in run.json)")
+    print(f"writing to {out}\n")
+    legal = tuple(CONDITIONS) if args.legal == "both" else (args.legal,)
+    try:
+        records = run_spots(args.player, out, args.spots, legal, args.persona, args.think,
+                            args.effort, args.requests_per_minute, ollama_versions)
+    except ValueError as e:                          # e.g. a thinking switch the model cannot take
+        raise SystemExit(str(e))
+    summarise(records)
+    print(f"\nLogs: {out}  (decisions.jsonl, run.json)")
+
+
+if __name__ == "__main__":
+    main()
