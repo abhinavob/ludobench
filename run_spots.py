@@ -7,7 +7,11 @@ Each spot of the folder (default spots_40_repaired/, see repair_spots.py) is
 asked twice, with the legal-move list hidden and shown (--legal), with the
 standard prompt and reply settings of run_games.py. A grudge spot carries its
 history paragraph (neutral or grudge); --persona adds one of the persona
-instructions of run_all_spots.py, off by default.
+instructions of run_all_spots.py, off by default. --shuffle and --outcomes
+change the shown list as in run_games.py; the shuffle draws on the spot's own
+stream, random_streams('<spot id>:<condition>'), and outcomes go only on the
+prompts that show the list. --per-category N asks only N spots of each category
+(see subset), e.g. for a slow thinking model.
 
 Results go to results/<experiment>/<player>[_persona-NAME]/: run.json and
 decisions.jsonl, one record per spot and condition with the fields of a game's
@@ -20,6 +24,7 @@ import glob
 import json
 import os
 import sys
+from itertools import chain, zip_longest
 
 import ludo_rules as rules
 from agents import HeuristicAgent
@@ -72,11 +77,35 @@ def board(spot):
     return {int(p): list(t) for p, t in spot["tokens"].items()}
 
 
+def pair_id(spot):
+    return spot["id"].rsplit("_", 1)[0] if spot["scenario"] == "grudge" else None
+
+
+def subset(spots, n):
+    """
+    The first n units of each category, a unit being a spot or a grudge pair:
+    taken from the 2-, 3- and 4-player units in turn, each in file order, so
+    the player counts stay even (10 gives 4/3/3) and a smaller n is part of a
+    larger one. The spots keep their file order.
+    """
+    units = {}                                         # category -> unit key -> its spots
+    for s in spots:
+        units.setdefault(s["scenario"], {}).setdefault(pair_id(s) or s["id"], []).append(s)
+    keep = set()
+    for category in units.values():
+        by_players = {}
+        for unit in category.values():
+            by_players.setdefault(len(unit[0]["players"]), []).append(unit)
+        turns = chain.from_iterable(zip_longest(*(by_players[k] for k in sorted(by_players))))
+        keep.update(s["id"] for unit in [u for u in turns if u][:n] for s in unit)
+    return [s for s in spots if s["id"] in keep]
+
+
 def spot_fields(spot, folder, original, persona):
     grudge = spot["scenario"] == "grudge"
     return {"spot_id": spot["id"], "spots_folder": os.path.basename(os.path.normpath(folder)),
             "spot_changed": spot["tokens"] != original.get(spot["id"], spot)["tokens"],
-            "pair_id": spot["id"].rsplit("_", 1)[0] if grudge else None,
+            "pair_id": pair_id(spot),
             "history": ("neutral" if spot["id"].endswith("_a") else "grudge") if grudge else None,
             "persona": persona}
 
@@ -85,7 +114,7 @@ def ask(agent, spot, shown, persona_text, search):
     """(pre, chosen, env after the move, model fields) for one spot and condition."""
     p, d = spot["current_player"], spot["dice"]
     env = SpotEnv(spot["players"], board(spot))
-    env.rng = random_streams(f"{spot['id']}:{'shown' if shown else 'hidden'}")   # invalid-reply fallback
+    env.rng = random_streams(f"{spot['id']}:{'shown' if shown else 'hidden'}")   # fallback, --shuffle
     env.history_text = spot.get("history_text")
     env.persona_text = persona_text
     pre = analyse(env, p, d, HeuristicAgent())
@@ -124,20 +153,26 @@ def resume_spots(out_dir, settings, players, todo):
 
 
 def run_spots(spec, out_dir, folder=DEFAULT_SPOTS, legal=("hidden", "shown"), persona=None,
-              think=False, effort=None, requests_per_minute=None, ollama_versions=None):
-    """Ask every spot of `folder` in each `legal` condition; return the run's records."""
+              legal_order="ascending", move_outcomes=False, per_category=None, think=False,
+              effort=None, requests_per_minute=None, ollama_versions=None):
+    """Ask the spots of `folder` (all, or `per_category`) in each `legal` condition; return the records."""
     spots = load_spots(folder)
+    if per_category:
+        spots = subset(spots, per_category)
     original = {s["id"]: s for s in load_spots(ORIGINAL_SPOTS)}
     persona_text = persona_texts()[persona] if persona else None
     players = player_info([spec], [0])
     llm_kwargs, record = llm_setup(players[0], False, think, effort, RELEASED, requests_per_minute)
     players[0].update(record)
     reply = reply_setup(False, think, RELEASED)
-    settings = {"spots_folder": os.path.basename(os.path.normpath(folder)), "spots": len(spots),
-                "legal_moves": list(legal), "persona": persona, "persona_text": persona_text,
+    settings = {"spots_folder": os.path.basename(os.path.normpath(folder)),
+                "per_category": per_category, "spots": len(spots),
+                "legal_moves": list(legal), "legal_order": legal_order,
+                "move_outcomes": move_outcomes, "persona": persona, "persona_text": persona_text,
                 "search_player": f"gt(d={SEARCH_DEPTH})", "original_rules": False,
                 **reply_settings(reply, think, effort, False)}
-    configs = {c: decision_config(reply, think, effort, False, CONDITIONS[c]) for c in legal}
+    configs = {c: decision_config(reply, think, effort, False, CONDITIONS[c], 0,
+                                  move_outcomes and CONDITIONS[c], legal_order) for c in legal}
     todo = {(s["id"], CONDITIONS[c]) for s in spots for c in legal}
     meta, done = resume_spots(out_dir, settings, players, todo)
     if done:
@@ -145,11 +180,12 @@ def run_spots(spec, out_dir, folder=DEFAULT_SPOTS, legal=("hidden", "shown"), pe
     if todo <= done:
         return read_records(out_dir)
     run = RunLog(out_dir, os.path.basename(os.path.normpath(out_dir)), players, settings,
-                 dict(configs[legal[0]], legal_moves_shown=[CONDITIONS[c] for c in legal]),
+                 dict(configs[legal[0]], legal_moves_shown=[CONDITIONS[c] for c in legal],
+                      move_outcomes=move_outcomes),
                  ollama_versions or {}, SpotEnv(range(4), {}), resumed=meta, games=False)
     run.meta["definitions"] = {**DEFINITIONS, **SPOT_DEFINITIONS}
     run.write_meta()
-    agent, _ = build_agent(spec, llm_kwargs, None, True, False, 0, False, "ascending")
+    agent, _ = build_agent(spec, llm_kwargs, None, True, False, 0, move_outcomes, legal_order)
     search = GameTheoryMultiplayerAgent(search_depth=SEARCH_DEPTH)
     info = players[0]
     try:
@@ -205,6 +241,13 @@ def main():
     ap.add_argument("--spots", default=DEFAULT_SPOTS, help="spot folder (default: spots_40_repaired)")
     ap.add_argument("--legal", choices=["both", *CONDITIONS], default="both",
                     help="ask with the legal-move list hidden, shown, or both (default)")
+    ap.add_argument("--shuffle", action="store_true",
+                    help="show the legal moves in a random order (the spot's legal_order stream)")
+    ap.add_argument("--outcomes", action="store_true",
+                    help="after the legal-move list, say what each legal move does")
+    ap.add_argument("--per-category", type=int, metavar="N",
+                    help="ask only N spots of each category, a grudge pair counting as one "
+                         "(default: all)")
     ap.add_argument("--persona", choices=names, help="add this persona instruction (default: none)")
     ap.add_argument("--think", action="store_true", help="let a thinking model think")
     ap.add_argument("--effort", choices=["low", "medium", "high"], help="reasoning effort level")
@@ -214,6 +257,10 @@ def main():
     args = ap.parse_args()
     if not is_llm_spec(args.player):
         ap.error("--player must be an LLM")
+    if args.outcomes and args.legal == "hidden":
+        ap.error("--outcomes needs the legal-move list in the prompt")
+    if args.per_category is not None and args.per_category < 1:
+        ap.error("--per-category must be 1 or more")
     try:
         folder = run_folder([args.player], args.effort)
     except ValueError as e:
@@ -227,8 +274,9 @@ def main():
     print(f"writing to {out}\n")
     legal = tuple(CONDITIONS) if args.legal == "both" else (args.legal,)
     try:
-        records = run_spots(args.player, out, args.spots, legal, args.persona, args.think,
-                            args.effort, args.requests_per_minute, ollama_versions)
+        records = run_spots(args.player, out, args.spots, legal, args.persona,
+                            "shuffled" if args.shuffle else "ascending", args.outcomes,
+                            args.per_category, args.think, args.effort, args.requests_per_minute, ollama_versions)
     except ValueError as e:                          # e.g. a thinking switch the model cannot take
         raise SystemExit(str(e))
     summarise(records)

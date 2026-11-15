@@ -1,6 +1,8 @@
-"""run_spots.py: spot prompts as in games, history and persona, records, rates and resume."""
+"""run_spots.py: spot prompts as in games (shuffled, with outcomes), history and persona,
+records, rates, resume and the per-category subset."""
 import json
 import sys
+from collections import Counter
 
 import pytest
 
@@ -8,7 +10,7 @@ import run_games
 import run_spots
 from decision_log import choice_rates
 from game_theory_multiplayer_agent import GameTheoryMultiplayerAgent
-from ludo_env import LudoEnv
+from ludo_env import LudoEnv, random_streams
 from spot_evaluation import SpotEnv
 from test_decision_records import offline
 
@@ -53,20 +55,40 @@ def by(records, sid, shown=True):
     return next(r for r in records if r["spot_id"] == sid and r["config"]["legal_moves_shown"] is shown)
 
 
+@pytest.mark.parametrize("order,outcomes", [("ascending", False), ("shuffled", True)])
 @pytest.mark.parametrize("shown", [True, False])
-def test_spot_prompt_is_the_game_prompt(tmp_path, monkeypatch, folder, shown):
-    _, model = run(tmp_path, monkeypatch, folder, legal=("shown" if shown else "hidden",))
+def test_spot_prompt_is_the_game_prompt(tmp_path, monkeypatch, folder, shown, order, outcomes):
+    condition = "shown" if shown else "hidden"
+    _, model = run(tmp_path, monkeypatch, folder, legal=(condition,), legal_order=order,
+                   move_outcomes=outcomes)
     spot = SPOTS["svo_4p_004"]
     env = LudoEnv(seed=0, num_players=4)
     env.tokens = run_spots.board(spot)
+    env.rng = random_streams(f"svo_4p_004:{condition}")
     game = Model()
     offline(monkeypatch, game)
     player = run_games.player_info(["llm:m:1b"], [0])[0]
     kwargs, _ = run_games.llm_setup(player, False, False, None, run_games.RELEASED)
-    agent, _ = run_games.build_agent("llm:m:1b", kwargs, None, shown, False, 0, False, "ascending")
+    agent, _ = run_games.build_agent("llm:m:1b", kwargs, None, shown, False, 0, outcomes, order)
     agent.select_move(env, spot["current_player"], spot["dice"], [0, 1, 2, 3])
     assert model.prompts[0] == game.prompts[0]
     assert ("Legal moves:" in game.prompts[0]) is shown
+    assert ("What each legal move does" in game.prompts[0]) is (shown and outcomes)
+
+
+def test_shuffle_and_outcomes_are_recorded_and_shown_lists_vary(tmp_path, monkeypatch, folder):
+    records, model = run(tmp_path, monkeypatch, folder, legal_order="shuffled", move_outcomes=True)
+    settings = json.loads(open(tmp_path / "run" / "run.json").read())["settings"]
+    assert settings["legal_order"] == "shuffled" and settings["move_outcomes"] is True
+    for rec, prompt in zip(records, model.prompts):
+        shown = rec["config"]["legal_moves_shown"]
+        assert rec["config"]["legal_order"] == "shuffled"
+        assert rec["config"]["move_outcomes"] is shown
+        assert ("What each legal move does" in prompt) is shown
+        if shown:
+            assert sorted(rec["shown_legal_moves"]) == rec["legal_moves"]
+            assert f"{run_games.LEGAL_LIST_LEAD}{rec['shown_legal_moves']}\n" in prompt
+    assert any(r["shown_legal_moves"] not in (None, r["legal_moves"]) for r in records)
 
 
 def test_grudge_spots_carry_their_history_and_others_none(tmp_path, monkeypatch, folder):
@@ -127,11 +149,12 @@ def test_svo_4p_004_counts_base_pieces_as_bring_outs_and_opening(tmp_path, monke
     assert rates["safe"] == {"available": 1, "taken": 0, "rate": 0.0}
 
 
-def test_stopped_run_resumes_to_the_same_records(tmp_path, monkeypatch, folder):
-    whole, _ = run(tmp_path / "a", monkeypatch, folder)
+@pytest.mark.parametrize("kw", [{}, {"legal_order": "shuffled", "move_outcomes": True}])
+def test_stopped_run_resumes_to_the_same_records(tmp_path, monkeypatch, folder, kw):
+    whole, _ = run(tmp_path / "a", monkeypatch, folder, **kw)
     with pytest.raises(KeyboardInterrupt):
-        run(tmp_path / "b", monkeypatch, folder, model=Model(stop_after=3))
-    rest, model = run(tmp_path / "b", monkeypatch, folder)
+        run(tmp_path / "b", monkeypatch, folder, model=Model(stop_after=3), **kw)
+    rest, model = run(tmp_path / "b", monkeypatch, folder, **kw)
     assert len(model.prompts) == 2 * len(IDS) - 3
     assert rest == whole
     meta = json.loads(open(tmp_path / "b" / "run" / "run.json").read())
@@ -140,16 +163,60 @@ def test_stopped_run_resumes_to_the_same_records(tmp_path, monkeypatch, folder):
         run(tmp_path / "b", monkeypatch, folder, persona="safe")
 
 
-def test_command_line_writes_to_the_experiment(tmp_path, monkeypatch, folder):
+def test_subset_takes_n_units_per_category_with_even_player_counts():
+    every = run_spots.load_spots(run_spots.DEFAULT_SPOTS)
+    ten, twenty = run_spots.subset(every, 10), run_spots.subset(every, 20)
+    order = [s["id"] for s in every]
+    assert [s["id"] for s in ten] == [i for i in order if i in {s["id"] for s in ten}]
+    assert {s["id"] for s in ten} < {s["id"] for s in twenty}
+    for category in {s["scenario"] for s in every}:
+        picked = [s for s in ten if s["scenario"] == category]
+        units = {run_spots.pair_id(s) or s["id"]: len(s["players"]) for s in picked}
+        assert len(units) == 10 and sorted(Counter(units.values()).values()) == [3, 3, 4]
+        if category == "grudge":
+            assert len(picked) == 20 and all(n == 2 for n in Counter(map(run_spots.pair_id, picked)).values())
+        for k in (2, 3, 4):                            # the first units of each player count
+            pool = [s["id"] for s in every if s["scenario"] == category and len(s["players"]) == k]
+            mine = [s["id"] for s in picked if len(s["players"]) == k]
+            assert mine == pool[:len(mine)]
+    assert run_spots.subset(every, 100) == every
+
+
+def cli(tmp_path, monkeypatch, *args):
     offline(monkeypatch, Model())
     monkeypatch.setattr(run_spots, "RESULTS", str(tmp_path / "results"))
     monkeypatch.setattr(run_games, "check_ollama", lambda *a: "0.0-test")
-    monkeypatch.setattr(sys, "argv", ["run_spots.py", "--player", "llm:m:1b", "--spots", folder,
-                                      "--legal", "hidden", "--persona", "greedy",
+    monkeypatch.setattr(sys, "argv", ["run_spots.py", "--player", "llm:m:1b", *args,
                                       "--experiment", "trial"])
     run_spots.main()
+
+
+def test_command_line_writes_to_the_experiment(tmp_path, monkeypatch, folder):
+    cli(tmp_path, monkeypatch, "--spots", folder, "--legal", "hidden", "--persona", "greedy")
     out = tmp_path / "results" / "trial" / "m-1b_persona-greedy"
     meta = json.loads((out / "run.json").read_text(encoding="utf-8"))
     assert meta["settings"]["legal_moves"] == ["hidden"] and meta["settings"]["persona"] == "greedy"
+    assert meta["settings"]["legal_order"] == "ascending" and not meta["settings"]["move_outcomes"]
+    assert meta["settings"]["per_category"] is None and meta["settings"]["spots"] == len(IDS)
     assert meta["settings"]["reason_max_chars"] == 500 and meta["players"]["0"]["ceiling"] == 1024
     assert len((out / "decisions.jsonl").read_text(encoding="utf-8").splitlines()) == len(IDS)
+
+
+def test_command_line_shuffle_and_outcomes(tmp_path, monkeypatch, folder, capsys):
+    cli(tmp_path, monkeypatch, "--spots", folder, "--shuffle", "--outcomes")
+    meta = json.loads((tmp_path / "results" / "trial" / "m-1b" / "run.json").read_text(encoding="utf-8"))
+    assert meta["settings"]["legal_order"] == "shuffled" and meta["settings"]["move_outcomes"]
+    with pytest.raises(SystemExit):
+        cli(tmp_path, monkeypatch, "--spots", folder, "--legal", "hidden", "--outcomes")
+    assert "--outcomes needs the legal-move list" in capsys.readouterr().err
+
+
+def test_command_line_per_category(tmp_path, monkeypatch):
+    cli(tmp_path, monkeypatch, "--legal", "shown", "--per-category", "1")
+    out = tmp_path / "results" / "trial" / "m-1b"
+    meta = json.loads((out / "run.json").read_text(encoding="utf-8"))
+    ids = [json.loads(line)["spot_id"] for line in (out / "decisions.jsonl").open(encoding="utf-8")]
+    assert meta["settings"]["per_category"] == 1 and meta["settings"]["spots"] == len(ids) == 13
+    assert sum(i.startswith("grudge") for i in ids) == 2
+    with pytest.raises(SystemExit):
+        cli(tmp_path, monkeypatch, "--per-category", "0")
