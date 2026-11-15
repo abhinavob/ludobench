@@ -237,7 +237,8 @@ def main():
     names = sorted(k for k in persona_texts() if k != "none")
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0].strip())
     ap.add_argument("--player", required=True, metavar="LLM",
-                    help="llm:MODEL, llm://HOST[:PORT]/MODEL, llm:openrouter/MODEL or llm:nvidia/MODEL")
+                    help="llm:MODEL, llm://HOST[:PORT]/MODEL, llm:openrouter/MODEL, "
+                         "llm:nvidia/MODEL or llm:bedrock/MODEL")
     ap.add_argument("--spots", default=DEFAULT_SPOTS, help="spot folder (default: spots_40_repaired)")
     ap.add_argument("--legal", choices=["both", *CONDITIONS], default="both",
                     help="ask with the legal-move list hidden, shown, or both (default)")

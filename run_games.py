@@ -10,8 +10,9 @@ context of 8,192 tokens (16,384 and 20,480 when the model thinks), legal moves s
 Players are listed without seat numbers; seats follow the rules (two players
 sit in seats 0 and 2). A player is llm:MODEL (Ollama on this machine),
 llm://HOST[:PORT]/MODEL (Ollama on another machine, started there with
-OLLAMA_HOST=0.0.0.0), llm:openrouter/MODEL or llm:nvidia/MODEL (an API, key in
-OPENROUTER_API_KEY or NVIDIA_API_KEY), random, heuristic, first, gt[:DEPTH],
+OLLAMA_HOST=0.0.0.0), llm:openrouter/MODEL, llm:nvidia/MODEL or
+llm:bedrock/MODEL (an API, key in OPENROUTER_API_KEY, NVIDIA_API_KEY or
+AWS_BEARER_TOKEN_BEDROCK), random, heuristic, first, gt[:DEPTH],
 human or dummy. API models get the same prompt and reply settings, with
 reasoning off where the API allows (the thinking ceiling where it cannot be);
 --requests-per-minute N paces each API.
@@ -497,6 +498,8 @@ def llm_setup(player, original_rules, think, effort, released, requests_per_minu
         # "reasoning" holds the reasoning fields sent with every request.
         record = {"reasoning": extra, "effort": effort, "thinks": thinks, "ceiling": ceiling,
                   "temperature": temperature, "requests_per_minute": rpm}
+        if provider == "bedrock":      # which Bedrock API, and whether the schema is sent
+            record.update(api=info["api"], schema_sent=bool(info["structured_outputs"]))
         return dict(max_tokens=ceiling, stop=None, structured=True,
                     schema_order=DEFAULT_SCHEMA_ORDER, reason_max_chars=REASON_MAX_CHARS,
                     extra_body=extra, temperature=temperature, requests_per_minute=rpm,
@@ -959,8 +962,8 @@ def check_llm_players(ap, seat_specs):
     other = [seat_specs[pid] for pid, r in resolved.items()
              if r[0] not in ("ollama_native", *API_PROVIDERS)]
     if other:
-        ap.error(f"LLM players are llm:MODEL (Ollama), llm:openrouter/MODEL or "
-                 f"llm:nvidia/MODEL; not: {', '.join(other)}")
+        ap.error(f"LLM players are llm:MODEL (Ollama), llm:openrouter/MODEL, "
+                 f"llm:nvidia/MODEL or llm:bedrock/MODEL; not: {', '.join(other)}")
     for pid, (provider, model, base_url) in resolved.items():
         if provider in API_PROVIDERS and not os.environ.get(PROVIDER_DEFAULTS[provider]["key_env"]):
             ap.error(f"{seat_specs[pid]} needs {PROVIDER_DEFAULTS[provider]['key_env']} set")
@@ -1006,7 +1009,7 @@ def main():
                          "or OpenRouter's reasoning.effort, for models that take it")
     ap.add_argument("--requests-per-minute", type=float, metavar="N",
                     help="pace requests to each API to N per minute (default: NVIDIA 40, "
-                         "OpenRouter unpaced)")
+                         "OpenRouter and Bedrock unpaced)")
     ap.add_argument("--original-rules", action="store_true",
                     help="the released LudoBench rules, prompt and reply format (60 tokens, "
                          "'<int> | <reason>'), to reproduce the original paper")

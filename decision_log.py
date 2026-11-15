@@ -84,12 +84,15 @@ DEFINITIONS = {
     "thinking_tokens": "Ollama native: the tokens streamed before the answer's first "
                        "text when the model thought, else 0, counted from the "
                        "stream's logprobs (one per token, whitespace included); an "
-                       "API: the reasoning tokens it reported; null if not counted",
-    "provider": "who served the model: ollama_native, openrouter or nvidia",
+                       "API: the reasoning tokens it reported; null if not counted "
+                       "(Bedrock's Converse reports none)",
+    "provider": "who served the model: ollama_native, openrouter, nvidia, "
+                "bedrock_chat_completions or bedrock_converse",
     "served_by": "the upstream provider OpenRouter routed the request to; null "
-                 "on Ollama and NVIDIA",
+                 "on Ollama, NVIDIA and Bedrock",
     "cost_usd": "US dollars the call cost: OpenRouter's figure, 0 on NVIDIA and "
-                "Ollama; run.json's cost_usd is the run's total",
+                "Ollama, null on Bedrock (it reports none; price its tokens); "
+                "run.json's cost_usd is the run's total of reported costs",
     "retries": "failed attempts retried before the reply (rate limits, server "
                "errors, timeouts, dropped connections, cut-off bodies); they do "
                "not make the reply invalid",

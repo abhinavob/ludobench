@@ -10,6 +10,9 @@ A backend is specified as "<provider>:<model>":
     ollama_native:qwen3.5:9b          (model names may contain colons)
     llm:openrouter/openai/gpt-6-luna  (OpenRouter; same as openrouter:openai/gpt-6-luna)
     llm:nvidia/moonshotai/kimi-k2.6   (NVIDIA's API catalog; same as nvidia:...)
+    llm:bedrock/global.moonshotai.kimi-k3.1
+                                      (Amazon Bedrock in ap-southeast-2: a model ID
+                                      or an au., apac. or global. inference profile)
     dummy                             (offline stub, no API)
 
 llm / ollama_native can also name another machine's Ollama server:
@@ -17,9 +20,10 @@ llm / ollama_native can also name another machine's Ollama server:
     ollama_native://<host>:11434/qwen2.5vl:3b
     ollama_native://<host>/qwen2.5vl:3b        (port defaults to 11434)
 
-OpenRouter and NVIDIA share one backend for OpenAI-compatible APIs. Their keys
-are read from the environment (OPENROUTER_API_KEY, NVIDIA_API_KEY) and are never
-printed or logged.
+OpenRouter, NVIDIA and Bedrock share one API backend: OpenAI-compatible Chat
+Completions, and Bedrock's Converse for models that lack it (BEDROCK_MODELS).
+Their keys are read from the environment (OPENROUTER_API_KEY, NVIDIA_API_KEY,
+AWS_BEARER_TOKEN_BEDROCK) and are never printed or logged.
 
 Usage:
     from llm_backends import make_llm
@@ -54,8 +58,16 @@ PROVIDER_DEFAULTS = {
         "key_env": "NVIDIA_API_KEY",
         "requests_per_minute": 40,
     },
+    # Bedrock's runtime (inference) and control-plane (model lists) endpoints;
+    # its quotas are per model, and a throttled request is retried.
+    "bedrock": {
+        "base_url": "https://bedrock-runtime.ap-southeast-2.amazonaws.com",
+        "control_url": "https://bedrock.ap-southeast-2.amazonaws.com",
+        "key_env": "AWS_BEARER_TOKEN_BEDROCK",
+        "requests_per_minute": None,
+    },
 }
-API_PROVIDERS = ("openrouter", "nvidia")
+API_PROVIDERS = ("openrouter", "nvidia", "bedrock")
 
 DEFAULT_TIMEOUT = 600      # seconds per request
 TIMEOUT_RETRIES = 2        # retries of a request not answered in time; then the run stops
@@ -105,6 +117,34 @@ NVIDIA_REASONING = {
         "off": {"chat_template_kwargs": {"enable_thinking": False}}},
     "openai/gpt-oss-20b": {"efforts": ["low", "medium", "high"]},
 }
+# Bedrock models, by model ID without an inference-profile prefix: "api", "chat"
+# for Chat Completions on bedrock-runtime, else Converse; whether they take a
+# JSON schema; and their reasoning as in NVIDIA_REASONING. From each model's
+# card on docs.aws.amazon.com/bedrock (2026-11-15):
+# - kimi-k3.1 reasons at "max" unless told; "none" switches it off. Converse
+#   passes its reasoning_effort on unchecked, and AWS says to set it through
+#   Chat Completions. In ap-southeast-2 only its global. profile serves it.
+# Any other model goes through Converse with no reasoning fields and no schema.
+BEDROCK_MODELS = {
+    "moonshotai.kimi-k3.1": {"api": "chat", "structured_outputs": True, "reasoning": {
+        "off": {"reasoning_effort": "none"},
+        "efforts": ["low", "medium", "high", "xhigh", "max"]}},
+}
+BEDROCK_PROFILES = ("au", "apac", "global")      # usable from ap-southeast-2
+OTHER_PROFILES = ("us", "us-gov", "eu", "jp", "in", "ca")
+
+
+def bedrock_model(model):
+    """What we know of a Bedrock model ID or inference profile (BEDROCK_MODELS)."""
+    prefix, _, base = model.partition(".")
+    if prefix in OTHER_PROFILES:
+        raise ValueError(f"bedrock: {model} is a profile for another geography; from "
+                         f"ap-southeast-2 use a model ID or an "
+                         f"{', '.join(p + '.' for p in BEDROCK_PROFILES)} profile")
+    known = BEDROCK_MODELS.get(base if prefix in BEDROCK_PROFILES else model, {})
+    return {"api": "converse", "structured_outputs": None, "reasoning": None, **known}
+
+
 # OpenRouter's reasoning efforts, lowest first.
 EFFORTS = ("none", "minimal", "low", "medium", "high", "xhigh", "max")
 
@@ -211,8 +251,13 @@ def api_model_info(provider, model):
     it supports a structured-output schema and temperature, how it reasons, and
     its price per token (OpenRouter). NVIDIA reports none of these, so they are
     None there except the reasoning table above. Raises ValueError if the API
-    does not list the model.
+    does not list the model. Bedrock's lists need the key, so a Bedrock model
+    is not looked up: BEDROCK_MODELS says what is known, and the API used.
     """
+    if provider == "bedrock":
+        entry = bedrock_model(model)
+        return {"structured_outputs": entry["structured_outputs"], "temperature": None,
+                "pricing": None, "reasoning": entry["reasoning"], "api": entry["api"]}
     listing = _ollama(PROVIDER_DEFAULTS[provider]["base_url"], "/models", timeout=30)["data"]
     entry = next((m for m in listing if m["id"] == model), None)
     if entry is None:
@@ -231,11 +276,11 @@ def api_reasoning(provider, info, effort=None):
     (extra request fields for the model's reasoning; whether it reasons, None if
     the API does not say). Without an effort, reasoning is switched off where
     the model allows it, else kept at its lowest effort. An effort is sent as
-    NVIDIA's reasoning_effort or OpenRouter's reasoning.effort; one the model
-    does not list is a ValueError.
+    NVIDIA's or Bedrock's reasoning_effort or OpenRouter's reasoning.effort; one
+    the model does not list is a ValueError.
     """
     reasoning = info["reasoning"] or {}
-    if provider == "nvidia":
+    if provider in ("nvidia", "bedrock"):
         off, efforts = reasoning.get("off"), reasoning.get("efforts", [])
         field = lambda level: {"reasoning_effort": level}
     else:
@@ -252,7 +297,7 @@ def api_reasoning(provider, info, effort=None):
         return off, False
     if efforts:
         return field(efforts[0]), True
-    if provider == "nvidia":
+    if provider in ("nvidia", "bedrock"):
         return {}, None
     return {}, bool(info["reasoning"])
 
@@ -389,7 +434,7 @@ def make_llm(spec,
                           logprobs), else 0; an API: the reasoning tokens it
                           reported, or None
       last_cost           US dollars the call cost (OpenRouter's figure; 0 on
-                          NVIDIA and Ollama)
+                          NVIDIA and Ollama; None on Bedrock, which reports none)
       last_served_by      the upstream provider OpenRouter routed to, or None
       last_retries        failed attempts retried for this call
       last_timeouts       how many of those were not answered in time
@@ -445,43 +490,114 @@ class _APIError(Exception):
         self.code, self.retry_after = code, retry_after
 
 
+def _chat_request(provider, model, prompt, system_prompt, temperature, max_tokens, stop,
+                  schema, extra_body):
+    """A /chat/completions request body; the schema goes as a json_schema response format."""
+    messages = []
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+    messages.append({"role": "user", "content": prompt})
+    payload = {"model": model, "messages": messages, **extra_body}
+    if temperature is not None:
+        payload["temperature"] = temperature
+    if max_tokens is not None:
+        payload["max_tokens"] = max_tokens
+    if stop:
+        payload["stop"] = list(stop)
+    if schema is not None:
+        payload["response_format"] = {"type": "json_schema", "json_schema": {
+            "name": "move", "strict": True,
+            "schema": {**schema, "additionalProperties": False}}}
+    if provider == "openrouter":
+        payload["provider"] = {"require_parameters": True}
+        payload["usage"] = {"include": True}
+    return payload
+
+
+def _chat_reply(provider, data):
+    """The call's last_* fields from a /chat/completions reply."""
+    choice = data["choices"][0]
+    msg, usage = choice["message"], data.get("usage") or {}
+    return {"finish_reason": choice.get("finish_reason"),
+            "prompt_tokens": usage.get("prompt_tokens"),
+            "completion_tokens": usage.get("completion_tokens"),
+            "thinking_tokens": (usage.get("completion_tokens_details") or {}).get("reasoning_tokens"),
+            "cost": {"openrouter": usage.get("cost", 0), "nvidia": 0}.get(provider),
+            "served_by": data.get("provider"),
+            "reasoning": (msg.get("reasoning") or msg.get("reasoning_content") or "").strip(),
+            "content": (msg.get("content") or "").strip()}
+
+
+def _converse_request(provider, model, prompt, system_prompt, temperature, max_tokens, stop,
+                      schema, extra_body):
+    """
+    A Bedrock Converse request body: reasoning fields go in
+    additionalModelRequestFields, the schema (as a string) in outputConfig.
+    """
+    config = {"maxTokens": max_tokens, "temperature": temperature,
+              "stopSequences": list(stop) if stop else None}
+    payload = {"messages": [{"role": "user", "content": [{"text": prompt}]}],
+               "inferenceConfig": {k: v for k, v in config.items() if v is not None}}
+    if system_prompt:
+        payload["system"] = [{"text": system_prompt}]
+    if extra_body:
+        payload["additionalModelRequestFields"] = extra_body
+    if schema is not None:
+        payload["outputConfig"] = {"textFormat": {"type": "json_schema", "structure": {
+            "jsonSchema": {"name": "move", "schema": json.dumps(
+                {**schema, "additionalProperties": False})}}}}
+    return payload
+
+
+CONVERSE_STOPS = {"end_turn": "stop", "stop_sequence": "stop", "max_tokens": "length"}
+
+
+def _converse_reply(provider, data):
+    """
+    The call's last_* fields from a Converse reply. Converse reports input and
+    output tokens only (output includes reasoning), so thinking_tokens is None.
+    """
+    blocks, usage = data["output"]["message"]["content"], data.get("usage") or {}
+    return {"finish_reason": CONVERSE_STOPS.get(data.get("stopReason"), data.get("stopReason")),
+            "prompt_tokens": usage.get("inputTokens"),
+            "completion_tokens": usage.get("outputTokens"),
+            "thinking_tokens": None, "cost": None, "served_by": None,
+            "reasoning": "".join(b["reasoningContent"].get("reasoningText", {}).get("text", "")
+                                 for b in blocks if "reasoningContent" in b).strip(),
+            "content": "".join(b.get("text", "") for b in blocks).strip()}
+
+
 def _make_api(spec, provider, model, base_url, max_tokens, stop, temperature,
               system_prompt, extra_body, retries, retry_wait, timeout, schema,
               requests_per_minute):
     """
-    Call an OpenAI-compatible /chat/completions API (OpenRouter, NVIDIA). The
-    schema is sent as a json_schema response format; on OpenRouter only
-    providers that support every parameter sent, the schema included, are used.
-    Rate-limit and server errors, timeouts, dropped connections and cut-off or
-    broken bodies are retried with backoff, printed, and counted in
+    Call an OpenAI-compatible /chat/completions API (OpenRouter, NVIDIA, and
+    Bedrock for the models BEDROCK_MODELS sends there), or Bedrock's Converse.
+    On OpenRouter only providers that support every parameter sent, the schema
+    included, are used; on Bedrock the schema is sent only to a model listed as
+    taking one. Rate-limit and server errors, timeouts, dropped connections and
+    cut-off or broken bodies are retried with backoff, printed, and counted in
     last_retries, not as invalid replies; any other error stops the run.
     """
     import http.client
     import urllib.error
+    import urllib.parse
     import urllib.request
 
     key_env = PROVIDER_DEFAULTS[provider]["key_env"]
-    url = base_url + "/chat/completions"
+    api, url, served = "chat", base_url + "/chat/completions", provider
+    if provider == "bedrock":
+        entry = bedrock_model(model)
+        api, schema = entry["api"], schema if entry["structured_outputs"] else None
+        url = base_url + ("/openai/v1/chat/completions" if api == "chat" else
+                          f"/model/{urllib.parse.quote(model, safe='')}/converse")
+        served = "bedrock_chat_completions" if api == "chat" else "bedrock_converse"
+    request, reply = ((_chat_request, _chat_reply) if api == "chat" else
+                      (_converse_request, _converse_reply))
 
     def call(prompt):
-        messages = []
-        if system_prompt:
-            messages.append({"role": "system", "content": system_prompt})
-        messages.append({"role": "user", "content": prompt})
-        payload = {"model": model, "messages": messages, **extra_body}
-        if temperature is not None:
-            payload["temperature"] = temperature
-        if max_tokens is not None:
-            payload["max_tokens"] = max_tokens
-        if stop:
-            payload["stop"] = list(stop)
-        if schema is not None:
-            payload["response_format"] = {"type": "json_schema", "json_schema": {
-                "name": "move", "strict": True,
-                "schema": {**schema, "additionalProperties": False}}}
-        if provider == "openrouter":
-            payload["provider"] = {"require_parameters": True}
-            payload["usage"] = {"include": True}
+        payload = request(provider, model, prompt, system_prompt, temperature, max_tokens,
+                          stop, schema, extra_body)
         key = os.environ.get(key_env)
         if not key:
             raise RuntimeError(f"{spec}: set {key_env}")
@@ -522,19 +638,8 @@ def _make_api(spec, provider, model, base_url, max_tokens, stop, temperature,
                     ValueError) as e:                 # dropped, or a cut-off or broken body
                 problem = str(getattr(e, "reason", e)) or type(e).__name__
             else:
-                choice = data["choices"][0]
-                msg = choice["message"]
-                usage = data.get("usage") or {}
-                call.last_finish_reason = choice.get("finish_reason")
-                call.last_prompt_tokens = usage.get("prompt_tokens")
-                call.last_completion_tokens = usage.get("completion_tokens")
-                call.last_thinking_tokens = (usage.get("completion_tokens_details")
-                                             or {}).get("reasoning_tokens")
-                call.last_cost = usage.get("cost", 0) if provider == "openrouter" else 0
-                call.last_served_by = data.get("provider")
-                call.last_reasoning = (msg.get("reasoning") or msg.get("reasoning_content")
-                                       or "").strip()
-                call.last_content = (msg.get("content") or "").strip()
+                for name, value in reply(provider, data).items():
+                    setattr(call, f"last_{name}", value)
                 return call.last_content
             if attempt < retries - 1:
                 print(f"  {spec}: {problem}; retry {attempt + 1}/{retries - 1} in {wait}s",
@@ -542,7 +647,7 @@ def _make_api(spec, provider, model, base_url, max_tokens, stop, temperature,
                 time.sleep(wait)
         raise RuntimeError(f"{spec} failed after {attempt + 1} attempts: {problem}")
 
-    call.spec, call.provider, call.base_url = spec, provider, base_url
+    call.spec, call.provider, call.base_url = spec, served, base_url
     call.last_reasoning = ""
     call.last_finish_reason = call.last_served_by = None
     call.last_content = ""
