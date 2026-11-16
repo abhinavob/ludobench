@@ -25,6 +25,11 @@ DEFAULT_ROOTS = {"main": os.path.join(PARENT, "LudoBench-5CBF", "results"),
                  "bedrock": os.path.join(PARENT, "LudoBench-bedrock", "results"),
                  "sharanga": os.path.join(PARENT, "sharanga_results")}
 FINISHED = ("win", "max_steps")
+# Runs left out of every part (they stay listed in runs.csv), by Run.key, with the reason.
+EXCLUDED_RUNS = {
+    "work:spots-think/qwen3.5-9b": "dropped: thinking qwen3.5-9b times out on the laptop "
+                                   "(1 of 130 spots asked)",
+}
 # The fields of a decision record the analysis keeps.
 DECISION_FIELDS = ("game_id", "seed", "ply", "player_id", "dice", "tokens_before", "legal_moves",
                    "shown_legal_moves", "chosen_index", "was_fallback", "completion_tokens",

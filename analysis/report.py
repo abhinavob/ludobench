@@ -17,21 +17,22 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from analysis import hypotheses, main_games, side_experiments, spot_tables  # noqa: E402
-from analysis.common import DEFAULT_ROOTS, REPO, find_runs, write_csv  # noqa: E402
+from analysis.common import DEFAULT_ROOTS, EXCLUDED_RUNS, REPO, find_runs, write_csv  # noqa: E402
 
 PARTS = {"main": main_games, "spots": spot_tables, "hypotheses": hypotheses, "side": side_experiments}
 
 
 def inventory(runs):
     return [{"run": r.key, "kind": r.kind, "model": r.model, "experiment": r.experiment,
-             "commit": (r.meta.get("git") or {}).get("commit"), "repairs": len(r.meta.get("repairs", []))}
-            for r in runs]
+             "commit": (r.meta.get("git") or {}).get("commit"), "repairs": len(r.meta.get("repairs", [])),
+             "excluded": EXCLUDED_RUNS.get(r.key, "")} for r in runs]
 
 
 def build(roots, out, parts=tuple(PARTS)):
     runs = find_runs(roots)
     write_csv(out, "runs", inventory(runs))
-    summary = [line for p in parts for line in PARTS[p].run(runs, out)]
+    used = [r for r in runs if r.key not in EXCLUDED_RUNS]
+    summary = [line for p in parts for line in PARTS[p].run(used, out)]
     with open(os.path.join(out, "summary.txt"), "w", encoding="utf-8") as f:
         f.write("\n".join(summary) + "\n")
     return summary

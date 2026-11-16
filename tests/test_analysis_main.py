@@ -69,10 +69,14 @@ def test_main_tables_count_wins_and_pair_shared_seeds(roots, tmp_path):
         assert os.path.exists(tmp_path / f"{name}.png") and os.path.exists(tmp_path / f"{name}.pdf")
 
 
-def test_report_writes_the_inventory_and_summary(roots, tmp_path):
-    summary = report.build(roots, str(tmp_path), ["main"])
+def test_report_writes_the_inventory_and_summary(roots, tmp_path, monkeypatch):
+    monkeypatch.setitem(report.EXCLUDED_RUNS, "work:spots-think/alpha-1b", "dropped in the test")
+    summary = report.build(roots, str(tmp_path), ["main", "side"])
     assert summary[0].startswith("main runs: 3 models, 12 games")
-    assert len(table(tmp_path, "runs")) == len(find_runs(roots))
+    runs = table(tmp_path, "runs")
+    assert len(runs) == len(find_runs(roots))                      # excluded runs stay listed
+    assert next(r for r in runs if r["run"] == "work:spots-think/alpha-1b")["excluded"] == "dropped in the test"
+    assert table(tmp_path, "side_thinking") == []                   # but no part uses them
 
 
 def test_statistics():
