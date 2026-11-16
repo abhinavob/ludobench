@@ -133,8 +133,9 @@ def game_rows(run, recs):
 def decisions(run, recs=None):
     """
     The run's player's decisions with at least one legal move, trimmed to
-    DECISION_FIELDS, from the games in recs (all, for a spot run). Each gains
-    "game", the game it is from (the spot run for spots).
+    DECISION_FIELDS, from the games in recs; for a spot run (recs None) every
+    decision, whichever player the spot puts to move. Each gains "game", the
+    game it is from (the spot run for spots).
     """
     pid = run.pid
     sources = {run.key: (run.path, None)} if recs is None else {}
@@ -143,7 +144,7 @@ def decisions(run, recs=None):
     out = []
     for key, (folder, keep) in sources.items():
         for d in lines(os.path.join(folder, "decisions.jsonl")):
-            if d["player_id"] == pid and d["legal_moves"] and (keep is None or d.get("game_id") in keep):
+            if d["legal_moves"] and (keep is None or (d["player_id"] == pid and d["game_id"] in keep)):
                 row = {k: d.get(k) for k in DECISION_FIELDS}
                 row["shown"] = d["config"]["legal_moves_shown"]
                 row["game"] = f"{key}#{d.get('game_id')}"
