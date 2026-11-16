@@ -77,8 +77,8 @@ def plot_rates(rows, bots, out):
             xerr=[[r["win_rate"] - r["win_lo"] for r in rows], [r["win_hi"] - r["win_rate"] for r in rows]],
             capsize=2)
     ax.set_yticks(y, [f"{r['model']} (n={r['games']})" for r in rows])
-    for (name, b), style in zip(sorted(bots.items()), ("--", ":", "-.", (0, (5, 1)))):
-        ax.axvline(b["win_rate"], color="0.3", linestyle=style, linewidth=1,
+    for (name, b), color in zip(sorted(bots.items()), ("#8172B3", "#937860", "#DA8BC3", "#8C8C8C")):
+        ax.axvline(b["win_rate"], color=color, linestyle="--", linewidth=1.2,
                    label=f"{BOT_LABELS.get(name, name)} {b['win_rate']:.2f}")
     ax.set_xlim(0, 1)
     ax.set_xlabel("win rate against the heuristic (95% Wilson interval)")
