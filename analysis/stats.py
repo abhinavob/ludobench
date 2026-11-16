@@ -23,8 +23,9 @@ def bootstrap(sums, stat, b=B, seed=SEED):
     Cluster bootstrap. sums is an array (clusters, k) of per-cluster sums and
     stat maps an array (..., k) of totals to a statistic. Clusters (games, or
     spots) are resampled with replacement. Returns (estimate, ci_lo, ci_hi, p),
-    p two-sided for the statistic being 0 (twice the smaller share of
-    resampled statistics on either side of 0, at most 1).
+    p two-sided for the statistic being 0: twice the smaller share of
+    resampled statistics on either side of 0, counted as (1 + k) / (B + 1) so
+    it is never 0 (at least 2 / (B + 1)), at most 1.
     """
     sums = np.asarray(sums, dtype=float)
     if len(sums) == 0:
@@ -36,7 +37,8 @@ def bootstrap(sums, stat, b=B, seed=SEED):
                                     .sum(1)) for i in range(0, b, 1000)])
     boot = boot[~np.isnan(boot)]
     lo, hi = np.percentile(boot, [2.5, 97.5])
-    p = min(1.0, 2 * min(np.mean(boot <= 0), np.mean(boot >= 0)))
+    side = min(np.sum(boot <= 0), np.sum(boot >= 0))
+    p = min(1.0, 2 * (1 + side) / (len(boot) + 1))
     return est, float(lo), float(hi), float(p)
 
 
