@@ -63,15 +63,15 @@ def test_main_tables_count_wins_and_pair_shared_seeds(roots, tmp_path):
     assert {r["model"] for r in table(tmp_path, "bot_baselines")} == {"first", "random"}
     pairs = table(tmp_path, "main_paired")
     assert [(r["family"], r["n"]) for r in pairs if r["family"] == "model vs model"] == \
-        [("model vs model", "4")]
-    assert sum(r["family"] == "model vs bot" for r in pairs) == 4 and all(r["p_holm"] for r in pairs)
+        [("model vs model", "4")] * 3
+    assert sum(r["family"] == "model vs bot" for r in pairs) == 6 and all(r["p_holm"] for r in pairs)
     for name in ("main_win_rates", "main_invalid_rates", "main_paired"):
         assert os.path.exists(tmp_path / f"{name}.png") and os.path.exists(tmp_path / f"{name}.pdf")
 
 
 def test_report_writes_the_inventory_and_summary(roots, tmp_path):
     summary = report.build(roots, str(tmp_path), ["main"])
-    assert summary[0].startswith("main runs: 2 models, 8 games")
+    assert summary[0].startswith("main runs: 3 models, 12 games")
     assert len(table(tmp_path, "runs")) == len(find_runs(roots))
 
 

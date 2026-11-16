@@ -10,13 +10,14 @@ Tables:
   spots_agreement.csv     per model, condition, spot set and category (and
                           "all"): decisions, invalid replies, agreement with
                           the search player among valid replies (Wilson
-                          interval), and the chance level of a uniformly
-                          random legal move on the same decisions
+                          interval), and the chance level on the same
+                          decisions: 1 / number of distinct moves, averaged
   spots_choice_rates.csv  per model, condition, spot set and category, per
                           kind (capture, safe and not a bring-out, open = a
                           bring-out, home entry, finish): decisions offering
-                          it, the model's rate (Wilson), the random policy's
-                          rate and the search player's rate there
+                          it, the model's rate (Wilson), its chance rate (the
+                          share of distinct moves of that kind, averaged) and
+                          the search player's rate there
   spots_hidden_vs_shown.csv
                           per model and spot set: agreement with the list
                           hidden and shown on the same spots, paired
@@ -71,7 +72,7 @@ def agreement_row(ds):
             "invalid_rate": (len(ds) - len(valid)) / len(ds) if ds else None,
             "valid": len(valid), "agree": agree, "agreement": r["rate"], "agreement_lo": r["lo"],
             "agreement_hi": r["hi"],
-            "chance": float(np.mean([d["m"]["chance_agree"] for d in valid])) if valid else None}
+            "chance": float(np.mean([d["m"]["chance"] for d in valid])) if valid else None}
 
 
 def choice_rows(ds):
@@ -138,7 +139,7 @@ def plot(agree, choice, out):
                 ax.text(j, i, f"{v:.2f}", ha="center", va="center", fontsize=6,
                         color="white" if v < 0.5 else "black")
     ax.set_xticks(range(len(cats)), cats, rotation=60, ha="right", fontsize=7)
-    ax.set_yticks(range(len(models) + 1), models + ["chance (random move)"], fontsize=7)
+    ax.set_yticks(range(len(models) + 1), models + ["chance (1 / distinct moves)"], fontsize=7)
     fig.colorbar(im, label="agreement with the search player (legal moves shown)")
     save_figure(fig, out, "spots_agreement")
 
@@ -168,7 +169,7 @@ def plot(agree, choice, out):
                             if r["kind"] == kind and (r["model"] == m or key != "rate")] or [np.nan])
                 for kind in kinds]
         ax.bar(np.arange(len(kinds)) + i * width, vals, width,
-               label={"chance": "random move", "search": "search player"}.get(m, m),
+               label={"chance": "chance (distinct moves)", "search": "search player"}.get(m, m),
                color={"chance": "0.6", "search": "k"}.get(m))
     ax.set_xticks(np.arange(len(kinds)) + 0.4, ["capture", "safe (not bring-out)", "open (bring-out)",
                                                "home entry", "finish"], fontsize=8)

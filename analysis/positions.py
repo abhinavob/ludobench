@@ -44,23 +44,23 @@ def measures(d):
     """
     The per-decision quantities the tables average, for a completed decision:
     valid (a legal move from the model's own reply), choice (at least 2
-    groups), agreement with the search player and its chance level under a
-    uniformly random legal move, the first-listed move (by group and by piece)
-    and its chance, and per rate kind: offered, taken, the random policy's
-    rate and the search player's choice.
+    distinct moves), agreement with the search player, the chance of one
+    distinct move (1 / number of distinct moves, as preregistered), the
+    first-listed move's choice and its agreement with the search player (what
+    a first-listed bot would score), and per rate kind: offered, taken, its
+    chance (the share of distinct moves of that kind) and the search player's
+    choice.
     """
-    legal, groups, chosen, search = d["legal_moves"], d["move_groups"], d["chosen_index"], d["search_move"]
+    groups, chosen, search = d["move_groups"], d["chosen_index"], d["search_move"]
     group = {t: i for i, g in enumerate(groups) for t in g}
-    size = lambda t: len(groups[group[t]]) / len(legal)
     m = {"valid": chosen is not None and not d["was_fallback"], "choice": len(groups) >= 2,
-         "agree": chosen is not None and group[chosen] == group[search], "chance_agree": size(search)}
+         "agree": chosen is not None and group[chosen] == group[search], "chance": 1 / len(groups)}
     shown = d.get("shown_legal_moves")
     if shown:
-        first = shown[0]
-        m.update(first=chosen is not None and group[chosen] == group[first], chance_first=size(first),
-                 first_piece=chosen == first, chance_first_piece=1 / len(legal))
+        m.update(first=chosen is not None and group[chosen] == group[shown[0]],
+                 first_agree=group[shown[0]] == group[search])
     for kind, tokens in RATE_KINDS.items():
         toks = tokens(d["availability"])
-        m[kind] = {"offered": bool(toks), "taken": chosen in toks, "chance": len(toks) / len(legal),
-                   "search": search in toks}
+        m[kind] = {"offered": bool(toks), "taken": chosen in toks,
+                   "chance": len({group[t] for t in toks}) / len(groups), "search": search in toks}
     return m

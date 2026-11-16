@@ -1,8 +1,9 @@
 """
 Small results folders for the analysis tests, made by run_games.py and run_spots.py
-with a fake model: "alpha" always takes the first-listed move, "beta" the last
-(without a list, pieces 0, 1, 2, 3 in turn). alpha's game 1 is marked repaired
-and replayed, as MiniMax's was.
+with a fake model: "alpha" always takes the first-listed move, "beta" and
+"gamma" (a thinking model) the last (without a list, pieces 0, 1, 2, 3 in
+turn). alpha's game 1 is marked repaired and replayed, as MiniMax's was, and
+alpha also plays with move outcomes.
 """
 import json
 import re
@@ -38,6 +39,8 @@ def build(tmp):
         specs, games=n, seed0=seed0, out_dir=str(main / exp / run_games.run_folder(specs)), **kw)
     for model in ("alpha", "beta"):
         game([f"llm:{model}:1b", "heuristic"], "main")
+    game(["llm:gamma:1b", "heuristic"], "main", think=True)
+    game(["llm:alpha:1b", "heuristic"], "outcomes", move_outcomes=True)
     for bot in ("first", "random"):
         game([bot, "heuristic"], "bots")
     game(["llm:alpha:1b", "heuristic"], "hidden", include_legal_moves=False)
