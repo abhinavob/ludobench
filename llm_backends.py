@@ -124,11 +124,15 @@ NVIDIA_REASONING = {
 # - kimi-k3.1 reasons at "max" unless told; "none" switches it off. Converse
 #   passes its reasoning_effort on unchecked, and AWS says to set it through
 #   Chat Completions. In ap-southeast-2 only its global. profile serves it.
+# - gpt-oss-20b always reasons (medium unless told) and takes low, medium and
+#   high; Converse sends the OpenAI fields it does not map in
+#   additionalModelRequestFields (model-parameters-openai, 2026-11-17).
 # Any other model goes through Converse with no reasoning fields and no schema.
 BEDROCK_MODELS = {
     "moonshotai.kimi-k3.1": {"api": "chat", "structured_outputs": True, "reasoning": {
         "off": {"reasoning_effort": "none"},
         "efforts": ["low", "medium", "high", "xhigh", "max"]}},
+    "openai.gpt-oss-20b-1:0": {"reasoning": {"efforts": ["low", "medium", "high"]}},
 }
 BEDROCK_PROFILES = ("au", "apac", "global")      # usable from ap-southeast-2
 OTHER_PROFILES = ("us", "us-gov", "eu", "jp", "in", "ca")

@@ -16,6 +16,7 @@ from llm_backends import api_model_info, api_reasoning, bedrock_model, make_llm,
 KEY = "bedrock-test-secret-456"
 KIMI = "global.moonshotai.kimi-k3.1"
 HAIKU = "au.anthropic.claude-haiku-5-5"
+GPT_OSS = "openai.gpt-oss-20b-1:0"
 MOVE = '{"reason": "safe square", "piece": 0}'
 CHAT = {"choices": [{"message": {"content": MOVE, "reasoning_content": "brief"},
                      "finish_reason": "stop"}],
@@ -104,6 +105,8 @@ def test_model_ids_and_au_apac_global_profiles_are_accepted():
     (KIMI, None, {"reasoning_effort": "none"}, False),          # off where the model allows
     (KIMI, "low", {"reasoning_effort": "low"}, True),
     (KIMI, "high", {"reasoning_effort": "high"}, True),
+    (GPT_OSS, None, {"reasoning_effort": "low"}, True),       # always reasons: its lowest level
+    (GPT_OSS, "high", {"reasoning_effort": "high"}, True),
     (HAIKU, None, {}, None),                                    # nothing known: nothing sent
 ])
 def test_reasoning_off_and_effort_mapped_to_the_model_s_levels(model, effort, fields, reasons):
@@ -165,6 +168,19 @@ def test_converse_sends_the_schema_and_effort_of_a_listed_model(bedrock, monkeyp
     assert list(schema["properties"]) == ["reason", "piece"]
     assert schema["properties"]["reason"]["maxLength"] == 500
     assert record["thinks"] is True and record["effort"] == "high"
+
+
+def test_gpt_oss_effort_goes_through_converse_and_into_run_json(bedrock, tmp_path):
+    records = run_spots.run_spots(f"llm:bedrock/{GPT_OSS}", str(tmp_path / "run"),
+                                  legal=("shown",), per_category=1, effort="high")
+    assert len(records) == 13 and all(r["config"]["effort"] == "high" for r in records)
+    assert all(r["path"] == "/model/openai.gpt-oss-20b-1%3A0/converse" and
+               r["body"]["additionalModelRequestFields"] == {"reasoning_effort": "high"}
+               and "outputConfig" not in r["body"] for r in FakeBedrock.requests)
+    run = json.loads((tmp_path / "run" / "run.json").read_text(encoding="utf-8"))
+    assert run["settings"]["effort"] == "high"
+    assert {k: run["players"]["0"][k] for k in ("reasoning", "effort", "thinks", "api")} == {
+        "reasoning": {"reasoning_effort": "high"}, "effort": "high", "thinks": True, "api": "converse"}
 
 
 def test_throttling_and_server_errors_are_retried_access_denied_stops(bedrock, capsys):

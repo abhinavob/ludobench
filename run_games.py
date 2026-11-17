@@ -1005,8 +1005,9 @@ def main():
                     help="let a thinking model think (by default thinking is off for "
                          "models that can switch it off)")
     ap.add_argument("--effort", choices=["low", "medium", "high"],
-                    help="reasoning effort: Ollama's think level, NVIDIA's reasoning_effort "
-                         "or OpenRouter's reasoning.effort, for models that take it")
+                    help="reasoning effort: Ollama's think level, NVIDIA's or Bedrock's "
+                         "reasoning_effort or OpenRouter's reasoning.effort, for models that "
+                         "take it")
     ap.add_argument("--requests-per-minute", type=float, metavar="N",
                     help="pace requests to each API to N per minute (default: NVIDIA 40, "
                          "OpenRouter and Bedrock unpaced)")
