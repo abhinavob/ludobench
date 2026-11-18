@@ -42,7 +42,7 @@ def test_original_weights_score_positions_exactly_as_both_evaluators():
 
 def test_variants_are_seeded_and_within_their_spread():
     specs = V.variants()
-    assert specs == V.variants() and len(specs) == 3 + len(V.SPREADS) * V.DRAWS
+    assert specs == V.variants() and len(specs) == 4 + len(V.SPREADS) * V.DRAWS
     for name, (depth, weights) in specs.items():
         if weights:
             spread = 0.25 if "25%" in name else 0.5

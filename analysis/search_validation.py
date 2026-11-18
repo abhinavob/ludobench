@@ -3,9 +3,10 @@ Search-player validation (CPU only, no models): how much the search player's
 choices depend on its depth and on its evaluator weights.
 
 Variants: GameTheoryMultiplayerAgent at depth 1, 2 (the reference: the search
-player the spot runs log) and 3; and at depth 2 with each evaluator weight
-multiplied by an independent factor drawn uniformly from [1 - s, 1 + s],
-three draws each for s = 0.25 and s = 0.5 (seeded).
+player the spot runs log), 3 and 4 (on the spots only, not in games); and at
+depth 2 with each evaluator weight multiplied by an independent factor drawn
+uniformly from [1 - s, 1 + s], three draws each for s = 0.25 and s = 0.5
+(seeded).
 
   search_variants.csv         the variants and their weights
   search_spots_agreement.csv  per pair of variants (depths with each other,
@@ -116,7 +117,7 @@ class WeightedSearch(GameTheoryMultiplayerAgent):
 
 def variants():
     """name -> (depth, weights or None for the original evaluator)."""
-    out = {f"depth {d}": (d, None) for d in (1, 2, 3)}
+    out = {f"depth {d}": (d, None) for d in (1, 2, 3, 4)}
     rng = np.random.default_rng(0)
     for s in SPREADS:
         for k in range(1, DRAWS + 1):
