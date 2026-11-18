@@ -2,7 +2,8 @@
 Small results folders for the analysis tests, made by run_games.py and run_spots.py
 with a fake model: "alpha" always takes the first-listed move, "beta" and
 "gamma" (a thinking model) the last (without a list, pieces 0, 1, 2, 3 in
-turn). alpha's game 1 is marked repaired and replayed, as MiniMax's was, and
+turn). alpha's reason says the move captures, the others' that it lands on a
+safe square. alpha's game 1 is marked repaired and replayed, as MiniMax's was, and
 alpha also plays with move outcomes.
 """
 import json
@@ -23,7 +24,9 @@ def fake_make_llm(spec, **_):
         found = LIST.search(prompt)
         listed = json.loads(found.group(1)) if found else None
         piece = (call.n % 4 if listed is None else listed[0] if "alpha" in spec else listed[-1])
-        call.last_content = json.dumps({"reason": "fixture", "piece": piece})
+        reason = (f"Moving token {piece} captures an opponent token." if "alpha" in spec
+                  else f"Token {piece} lands on a safe square.")
+        call.last_content = json.dumps({"reason": reason, "piece": piece})
         return call.last_content
     call.n, call.base_url, call.last_content = 0, None, None
     return call

@@ -34,7 +34,7 @@ EXCLUDED_RUNS = {
 DECISION_FIELDS = ("game_id", "seed", "ply", "player_id", "dice", "tokens_before", "legal_moves",
                    "shown_legal_moves", "chosen_index", "was_fallback", "completion_tokens",
                    "thinking_tokens", "spot_id", "spot_changed", "pair_id", "search_move",
-                   "move_groups", "availability")
+                   "move_groups", "availability", "parsed_reason")
 
 
 def lines(path):

@@ -16,10 +16,11 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from analysis import hypotheses, main_games, side_experiments, spot_tables  # noqa: E402
+from analysis import hypotheses, main_games, reasons, side_experiments, spot_tables  # noqa: E402
 from analysis.common import DEFAULT_ROOTS, EXCLUDED_RUNS, REPO, find_runs, write_csv  # noqa: E402
 
-PARTS = {"main": main_games, "spots": spot_tables, "hypotheses": hypotheses, "side": side_experiments}
+PARTS = {"main": main_games, "spots": spot_tables, "hypotheses": hypotheses, "side": side_experiments,
+         "reasons": reasons}
 
 
 def inventory(runs):
