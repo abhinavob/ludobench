@@ -7,7 +7,7 @@ read-only.
 
 Roots (--root LABEL=FOLDER, repeatable) default to common.DEFAULT_ROOTS: the
 main folder's results, ../LudoBench-work/results, ../LudoBench-bedrock/results
-and ../sharanga_results. runs.csv lists every run found; summary.txt the
+and ../sharanga_results/results. runs.csv lists every run found; summary.txt the
 headline of each part.
 """
 import argparse

@@ -23,7 +23,7 @@ PARENT = os.path.dirname(REPO)
 DEFAULT_ROOTS = {"main": os.path.join(PARENT, "LudoBench-5CBF", "results"),
                  "work": os.path.join(PARENT, "LudoBench-work", "results"),
                  "bedrock": os.path.join(PARENT, "LudoBench-bedrock", "results"),
-                 "sharanga": os.path.join(PARENT, "sharanga_results")}
+                 "sharanga": os.path.join(PARENT, "sharanga_results", "results")}
 FINISHED = ("win", "max_steps")
 # Runs left out of every part (they stay listed in runs.csv), by Run.key, with the reason.
 EXCLUDED_RUNS = {
