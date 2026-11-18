@@ -60,9 +60,16 @@ def test_spot_agreement_counts_spots_with_a_real_choice():
     assert V.spot_agreement(choices, [("depth 2", "depth 2")])[0]["agreement"] == 1
 
 
-def test_head_to_head_counts_every_game(tmp_path, monkeypatch):
+def test_head_to_head_plays_each_seed_in_both_seats(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    specs = {"depth 1": (1, None), "other": (1, None)}
-    (row,) = V.head_to_head(specs, [("depth 1", "other")], games=4)
-    assert row["games"] == 4 and row["wins_a"] + row["wins_b"] + row["no_winner"] == 4
+    specs = {"depth 1": (1, None), "same": (1, None)}
+    rows = {r["seats"]: r for r in V.head_to_head(specs, [("depth 1", "same")], games=6)}
+    assert [rows[s]["games"] for s in ("as run", "swapped", "both")] == [6, 6, 12]
+    for r in rows.values():
+        assert r["wins_a"] + r["wins_b"] + r["no_winner"] == r["games"]
+    # identical players: the swapped game is the same game with the seats exchanged
+    assert (rows["swapped"]["wins_a"], rows["swapped"]["wins_b"]) == (rows["as run"]["wins_b"],
+                                                                       rows["as run"]["wins_a"])
+    both = rows["both"]
+    assert both["wins_a"] == both["wins_b"] == 6 and both["seeds_a_both"] == both["seeds_b_both"] == 0
     assert os.getcwd() == str(tmp_path) and not list(tmp_path.iterdir())   # logs went elsewhere

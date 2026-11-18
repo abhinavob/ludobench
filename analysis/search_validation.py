@@ -13,12 +13,17 @@ three draws each for s = 0.25 and s = 0.5 (seeded).
                               category: spots with at least 2 distinct moves
                               (spots_40_repaired), and the share where both
                               choose the same distinct move (Wilson interval)
-  search_games.csv            head-to-head 2-player games per pairing, seeds
-                              0..N-1, the first variant in the first seat on
-                              even seeds: wins of each, the first's win rate
-                              with a Wilson interval, exact binomial p against
-                              0.5 (Holm across pairings); depth 2 against itself
-                              is the control for the seat and dice split
+  search_games.csv            head-to-head 2-player games per pairing on seeds
+                              0..N-1, each seed played twice: "as run" puts the
+                              first variant in the first seat on even seeds,
+                              "swapped" in the other seat, "both" adds them up.
+                              Wins of each, the first's win rate with a Wilson
+                              interval, and an exact binomial p against 0.5
+                              (Holm across pairings within each of the three):
+                              over games for one direction, for "both" over
+                              seeds one variant won in both seats (dice luck
+                              cancels). Depth 2 against itself is the control:
+                              its "both" must come out exactly even
 Figures: search_spots_agreement, search_games.
 
     python analysis/search_validation.py [--games 200] [--workers 4] [--out DIR]
@@ -164,13 +169,17 @@ def spot_agreement(choices, pairs):
 
 
 def _play(job):
-    """One game: (pairing index, seed, 1 if the first variant won, 0 if the second, None if no winner)."""
-    i, seed, spec_a, spec_b = job
+    """
+    One game: (pairing index, seed, swapped, 1 if the first variant won, 0 if
+    the second, None if no winner). The first variant sits first on even seeds,
+    or on odd seeds when swapped.
+    """
+    i, seed, swapped, spec_a, spec_b = job
     env = LudoEnv(seed=seed, num_players=2)
     first, second = env.player_ids
-    pid_a, pid_b = (first, second) if seed % 2 == 0 else (second, first)
+    pid_a, pid_b = (first, second) if (seed % 2 == 0) != swapped else (second, first)
     winner, _ = env.play_game({pid_a: agent(spec_a), pid_b: agent(spec_b)}, max_steps=1000)
-    return i, seed, None if winner is None else int(winner == pid_a)
+    return i, seed, swapped, None if winner is None else int(winner == pid_a)
 
 
 def _quiet_cwd():
@@ -179,7 +188,8 @@ def _quiet_cwd():
 
 
 def head_to_head(specs, pairings, games, workers=1):
-    jobs = [(i, seed, specs[a], specs[b]) for i, (a, b) in enumerate(pairings) for seed in range(games)]
+    jobs = [(i, seed, swapped, specs[a], specs[b]) for i, (a, b) in enumerate(pairings)
+            for seed in range(games) for swapped in (False, True)]
     if workers > 1:
         with ProcessPoolExecutor(workers, initializer=_quiet_cwd) as pool:
             results = list(pool.map(_play, jobs, chunksize=4))
@@ -191,15 +201,24 @@ def head_to_head(specs, pairings, games, workers=1):
         finally:
             os.chdir(home)
     rows = []
-    for i, (a, b) in enumerate(pairings):
-        won = [r for k, _, r in results if k == i]
-        wa, wb = sum(r == 1 for r in won), sum(r == 0 for r in won)
-        lo, hi = wilson(wa, wa + wb)
-        rows.append({"a": a, "b": b, "games": len(won), "wins_a": wa, "wins_b": wb,
-                     "no_winner": sum(r is None for r in won), "win_rate_a": wa / max(1, wa + wb),
-                     "lo": lo, "hi": hi, "p": mcnemar(wa, wb)})
-    for r, p in zip(rows, holm([r["p"] for r in rows])):
-        r["p_holm"] = p
+    for seats in ("as run", "swapped", "both"):
+        part = []
+        for i, (a, b) in enumerate(pairings):
+            won = {(seed, sw): r for k, seed, sw, r in results
+                   if k == i and seats in ("both", "swapped" if sw else "as run")}
+            wa, wb = sum(r == 1 for r in won.values()), sum(r == 0 for r in won.values())
+            lo, hi = wilson(wa, wa + wb)
+            row = {"a": a, "b": b, "seats": seats, "games": len(won), "wins_a": wa, "wins_b": wb,
+                   "no_winner": sum(r is None for r in won.values()),
+                   "win_rate_a": wa / max(1, wa + wb), "lo": lo, "hi": hi, "p": mcnemar(wa, wb)}
+            if seats == "both":            # per seed: which variant won in both seats
+                pairs = [(won[(s, False)], won[(s, True)]) for s in range(games)]
+                row.update(seeds_a_both=pairs.count((1, 1)), seeds_b_both=pairs.count((0, 0)),
+                           p=mcnemar(pairs.count((1, 1)), pairs.count((0, 0))))
+            part.append(row)
+        for r, p in zip(part, holm([r["p"] for r in part])):
+            r["p_holm"] = p
+        rows += part
     return rows
 
 
@@ -218,14 +237,21 @@ def plot(agree, games, out):
     fig.colorbar(im, label="share of spots where both choose the same distinct move")
     save_figure(fig, out, "search_spots_agreement")
 
-    fig, ax = figure(figsize=(6, 0.4 * len(games) + 1.2))
-    y = np.arange(len(games))
-    ax.errorbar([r["win_rate_a"] for r in games], y, fmt="o", capsize=3, color="#4C72B0",
-                xerr=[[r["win_rate_a"] - r["lo"] for r in games], [r["hi"] - r["win_rate_a"] for r in games]])
+    pairings = list(dict.fromkeys((r["a"], r["b"]) for r in games))
+    fig, ax = figure(figsize=(6, 0.45 * len(pairings) + 1.2))
+    for k, (seats, color) in enumerate([("as run", "#DD8452"), ("swapped", "#55A868"),
+                                        ("both", "#4C72B0")]):
+        rs = [r for r in games if r["seats"] == seats]
+        y = np.arange(len(rs)) + (k - 1) * 0.22
+        ax.errorbar([r["win_rate_a"] for r in rs], y, fmt="o", capsize=2, color=color, markersize=4,
+                    label=seats, xerr=[[r["win_rate_a"] - r["lo"] for r in rs],
+                                       [r["hi"] - r["win_rate_a"] for r in rs]])
     ax.axvline(0.5, color="0.5", linewidth=0.8)
-    ax.set_yticks(y, [f"{r['a']} vs {r['b']} (n={r['games']})" for r in games], fontsize=7)
+    n = max(r["games"] for r in games if r["seats"] == "both")
+    ax.set_yticks(range(len(pairings)), [f"{a} vs {b}" for a, b in pairings], fontsize=7)
     ax.set_xlim(0, 1)
-    ax.set_xlabel("win rate of the first variant (95% Wilson interval)")
+    ax.set_xlabel(f"win rate of the first variant (95% Wilson interval; both = {n} games)")
+    ax.legend(fontsize=7, loc="lower right")
     save_figure(fig, out, "search_games")
 
 
@@ -257,8 +283,8 @@ def main():
         if r["category"] == "all":
             print(f"{r['a']} vs {r['b']}: same move on {r['agreement']:.2f} of {r['spots']} spots")
     for r in games:
-        print(f"{r['a']} vs {r['b']}: {r['wins_a']}-{r['wins_b']} (win rate {r['win_rate_a']:.2f}, "
-              f"Holm p {r['p_holm']:.3g})")
+        print(f"{r['a']} vs {r['b']} ({r['seats']}): {r['wins_a']}-{r['wins_b']} "
+              f"(win rate {r['win_rate_a']:.2f}, Holm p {r['p_holm']:.3g})")
 
 
 if __name__ == "__main__":
