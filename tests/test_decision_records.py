@@ -1,4 +1,4 @@
-"""Decision records: games log the same records as before, with home-entry availability added."""
+"""Decision records: games log the same records as before, plus home-entry availability and fence_stripped."""
 import hashlib
 import json
 import re
@@ -44,10 +44,14 @@ def read_run(out):
 
 
 def record_hashes(decisions, games):
-    """SHA-256 of each record as written, without home-entry availability and wall-clock times."""
+    """
+    SHA-256 of each record as written, without the fields added since (home-entry
+    availability, fence_stripped) and wall-clock times.
+    """
     out = []
     for rec in decisions:
         rec = dict(rec, availability={k: v for k, v in rec["availability"].items() if k != "home_entry"})
+        rec.pop("fence_stripped")
         out.append(rec)
     for rec in games:
         rec = {k: v for k, v in rec.items() if k != "timings"}
