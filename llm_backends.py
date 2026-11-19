@@ -129,11 +129,23 @@ NVIDIA_REASONING = {
 #   high; Converse sends the OpenAI fields it does not map in
 #   additionalModelRequestFields (model-parameters-openai, 2026-11-17).
 # Any other model goes through Converse with no reasoning fields and no schema.
+# "max_tokens": the card's maximum output where it is below API_CEILING, which
+# then caps the model's ceiling (2026-11-19). nova-pro refuses more than its
+# 10K ("exceeds the model limit of 10000"), so a card's K is read as 1,000; an
+# 8K card gets 8,000. The 16K of gpt-oss is 16,384: Bedrock served it replies
+# of 16,384 tokens.
 BEDROCK_MODELS = {
     "moonshotai.kimi-k3.1": {"api": "chat", "structured_outputs": True, "reasoning": {
         "off": {"reasoning_effort": "none"},
         "efforts": ["low", "medium", "high", "xhigh", "max"]}},
     "openai.gpt-oss-20b-1:0": {"reasoning": {"efforts": ["low", "medium", "high"]}},
+    "amazon.nova-pro-v1:0": {"max_tokens": 10000},
+    "google.gemma-3-12b-it": {"max_tokens": 8000},
+    "google.gemma-3-4b-it": {"max_tokens": 8000},
+    "qwen.qwen3-235b-a22b-2507-v1:0": {"max_tokens": 8000},
+    "qwen.qwen3-next-80b-a3b": {"max_tokens": 8000},
+    "deepseek.v3.2": {"max_tokens": 8000},
+    "minimax.minimax-m2.5": {"max_tokens": 8000},
 }
 BEDROCK_PROFILES = ("au", "apac", "global")      # usable from ap-southeast-2
 OTHER_PROFILES = ("us", "us-gov", "eu", "jp", "in", "ca")
@@ -147,7 +159,8 @@ def bedrock_model(model):
                          f"ap-southeast-2 use a model ID or an "
                          f"{', '.join(p + '.' for p in BEDROCK_PROFILES)} profile")
     known = BEDROCK_MODELS.get(base if prefix in BEDROCK_PROFILES else model, {})
-    return {"api": "converse", "structured_outputs": None, "reasoning": None, **known}
+    return {"api": "converse", "structured_outputs": None, "reasoning": None, "max_tokens": None,
+            **known}
 
 
 # OpenRouter's reasoning efforts, lowest first.
@@ -262,7 +275,8 @@ def api_model_info(provider, model):
     if provider == "bedrock":
         entry = bedrock_model(model)
         return {"structured_outputs": entry["structured_outputs"], "temperature": None,
-                "pricing": None, "reasoning": entry["reasoning"], "api": entry["api"]}
+                "pricing": None, "reasoning": entry["reasoning"], "api": entry["api"],
+                "max_tokens": entry["max_tokens"]}
     listing = _ollama(PROVIDER_DEFAULTS[provider]["base_url"], "/models", timeout=30)["data"]
     entry = next((m for m in listing if m["id"] == model), None)
     if entry is None:

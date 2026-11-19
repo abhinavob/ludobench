@@ -95,7 +95,7 @@ def test_model_ids_and_au_apac_global_profiles_are_accepted():
                   "apac.moonshotai.kimi-k3.1"):
         assert bedrock_model(model)["api"] == "chat"
     assert bedrock_model(HAIKU) == {"api": "converse", "structured_outputs": None,
-                                    "reasoning": None}
+                                    "reasoning": None, "max_tokens": None}
     with pytest.raises(ValueError, match="another geography"):
         bedrock_model("us.moonshotai.kimi-k3.1")
     assert run_games.folder_name(f"llm:bedrock/{KIMI}") == "bedrock-global.moonshotai.kimi-k3.1"
@@ -153,6 +153,18 @@ def test_other_models_go_through_converse_without_schema_or_reasoning_fields(bed
     assert call.last_finish_reason == "length"                 # logged as hitting the ceiling
     make_llm("llm:bedrock/anthropic.claude-x-v1:0", stop=None)("prompt")
     assert FakeBedrock.requests[-1]["path"] == "/model/anthropic.claude-x-v1%3A0/converse"
+
+
+@pytest.mark.parametrize("model, ceiling", [
+    ("amazon.nova-pro-v1:0", 10000), ("apac.amazon.nova-pro-v1:0", 10000),
+    ("google.gemma-3-4b-it", 8000), (GPT_OSS, 16384), (HAIKU, 16384),
+])
+def test_the_ceiling_is_capped_at_the_model_s_own_maximum(bedrock, tmp_path, model, ceiling):
+    run_spots.run_spots(f"llm:bedrock/{model}", str(tmp_path / "run"), legal=("shown",),
+                        per_category=1)
+    assert all(r["body"]["inferenceConfig"]["maxTokens"] == ceiling for r in FakeBedrock.requests)
+    players = json.loads((tmp_path / "run" / "run.json").read_text(encoding="utf-8"))["players"]
+    assert players["0"]["ceiling"] == ceiling
 
 
 def test_converse_sends_the_schema_and_effort_of_a_listed_model(bedrock, monkeypatch):

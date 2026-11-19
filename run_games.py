@@ -495,7 +495,8 @@ def llm_setup(player, original_rules, think, effort, released, requests_per_minu
         extra, thinks = api_reasoning(provider, info, effort)
         temperature = None if info["temperature"] is False else 0
         rpm = requests_per_minute or PROVIDER_DEFAULTS[provider]["requests_per_minute"]
-        ceiling = API_CEILING
+        # capped at the model's own maximum output where it is lower (Bedrock)
+        ceiling = min(API_CEILING, info.get("max_tokens") or API_CEILING)
         # "reasoning" holds the reasoning fields sent with every request.
         record = {"reasoning": extra, "effort": effort, "thinks": thinks, "ceiling": ceiling,
                   "temperature": temperature, "requests_per_minute": rpm}
