@@ -773,11 +773,12 @@ def resume(out_dir, settings, players):
 def run_games(specs, games, seed0, out_dir, include_legal_moves=True, legal_order="ascending",
               move_outcomes=False, history=0, think=False, effort=None, original_rules=False,
               released=None, max_steps=1000, watch=False, delay=0.0, ollama_versions=None,
-              cell=None, requests_per_minute=None):
+              cell=None, requests_per_minute=None, seed_step=1):
     """
-    Play one run into out_dir. With original_rules the reply setup is RELEASED,
-    updated by `released`. `cell` (experiment, model, opponent, settings) adds
-    the run's row to results/cells.csv after every game.
+    Play one run into out_dir: game g on seed seed0 + g * seed_step. With
+    original_rules the reply setup is RELEASED, updated by `released`. `cell`
+    (experiment, model, opponent, settings) adds the run's row to
+    results/cells.csv after every game.
     """
     released = {**RELEASED, **(released or {})}
     seats = rules.seats(len(specs), original_rules)
@@ -806,6 +807,7 @@ def run_games(specs, games, seed0, out_dir, include_legal_moves=True, legal_orde
         "specs": list(specs),
         "games": games,
         "seed0": seed0,
+        **({"seed_step": seed_step} if seed_step != 1 else {}),   # older runs have none
         "last_move_context": bool(history),
         "last_moves": history,
         "move_outcomes": move_outcomes,
@@ -826,7 +828,7 @@ def run_games(specs, games, seed0, out_dir, include_legal_moves=True, legal_orde
               + ("" if len(records) >= games else "; resuming"))
     run = None
     for g in range(len(records), games):
-        seed = seed0 + g
+        seed = seed0 + g * seed_step
         env = LudoEnv(seed=seed, num_players=len(specs), original_rules=original_rules)
         if run is None:                             # needs an env for its constants
             run = RunLog(out_dir, os.path.basename(os.path.normpath(out_dir)), players,
