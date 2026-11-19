@@ -9,7 +9,7 @@ import pytest
 
 import llm_backends
 from llm_backends import (THINKING_NOT_REPORTED, make_llm, model_info, parse_move_json,
-                          reason_first, thinking_setting)
+                          reason_first, thinking_setting, unfenced)
 
 
 class FakeOllama(BaseHTTPRequestHandler):
@@ -236,3 +236,21 @@ def test_field_order_of_the_raw_reply_is_recorded(reply, first):
 ])
 def test_json_reply_must_have_a_string_reason_and_an_integer_piece(reply, parsed):
     assert parse_move_json(reply) == parsed
+
+
+@pytest.mark.parametrize("reply, parsed, fenced", [
+    ('```json\n{"reason": "x", "piece": 2}\n```', (2, "x"), True),
+    ('```\n{\n  "reason": "x",\n  "piece": 2\n}\n```\n', (2, "x"), True),
+    ('```{"reason": "x", "piece": 2}```', (2, "x"), True),
+    ('{"reason": "x", "piece": 2}', (2, "x"), False),
+    ('Here it is:\n```json\n{"reason": "x", "piece": 2}\n```', None, False),   # only a surrounding fence
+    ('```json\n```json\n{"reason": "x", "piece": 2}\n```\n```', None, True),   # only one fence
+])
+def test_one_surrounding_code_fence_is_stripped(reply, parsed, fenced):
+    assert parse_move_json(reply) == parsed and unfenced(reply)[1] is fenced
+
+
+def test_decision_log_records_a_stripped_fence():
+    d = decide(Reply('```json\n{"reason": "x", "piece": 1}\n```'))
+    assert d["fence_stripped"] is True and d["parsed_index"] == 1 and not d["was_fallback"]
+    assert d["reason_first"] is True and decide(Reply('{"reason": "x", "piece": 1}'))["fence_stripped"] is False

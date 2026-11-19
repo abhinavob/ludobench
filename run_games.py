@@ -51,7 +51,7 @@ from agents import BaseAgent, RandomAgent, HeuristicAgent
 from llm_agent import LLMAgent
 from evaluation import evaluate
 from llm_backends import (make_llm, parse_spec, check_ollama, model_info, move_object,
-                          reason_first, thinking_setting, api_model_info, api_reasoning,
+                          reason_first, unfenced, thinking_setting, api_model_info, api_reasoning,
                           DEFAULT_SYSTEM_PROMPT, DEFAULT_TIMEOUT, TIMEOUT_RETRIES,
                           DEFAULT_SCHEMA_ORDER, REASON_MAX_CHARS, ANSWER_CEILING,
                           THINKING_CEILING, API_CEILING, ANSWER_CONTEXT, THINKING_CONTEXT,
@@ -248,6 +248,7 @@ class TrackedLLMAgent(LLMAgent):
             "reason_chars": (None if parsed is None else len(obj["reason"]) if obj
                              else len(env.last_llm_reason)),
             "reason_first": reason_first(raw or ""),
+            "fence_stripped": unfenced(raw or "")[1],
             "thinking_tokens": getattr(call, "last_thinking_tokens", None),
             "hit_ceiling": why == "length",
             "reasoning_text": getattr(call, "last_reasoning", "") or None,

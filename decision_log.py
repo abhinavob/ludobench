@@ -80,6 +80,9 @@ DEFINITIONS = {
     "reason_first": "in a valid JSON reply, the reason came before the piece in "
                     "the raw text (not every model keeps the schema's order); "
                     "null for any other reply",
+    "fence_stripped": "the raw reply was wrapped in one markdown code fence (```json "
+                      "... ``` or ``` ... ```), which the JSON reply parser strips "
+                      "before parsing; null if no model was asked",
     "completion_tokens": "output tokens the server reported, thinking included",
     "thinking_tokens": "Ollama native: the tokens streamed before the answer's first "
                        "text when the model thought, else 0, counted from the "
@@ -223,7 +226,8 @@ NO_MODEL = {
     "raw_reply": None, "parsed_index": None, "parsed_reason": None,
     "reasoning_text": None, "finish_reason": None, "was_fallback": None,
     "fallback_cause": None, "prompt_tokens": None, "completion_tokens": None,
-    "reason_chars": None, "reason_first": None, "thinking_tokens": None, "hit_ceiling": None,
+    "reason_chars": None, "reason_first": None, "fence_stripped": None,
+    "thinking_tokens": None, "hit_ceiling": None,
     "provider": None, "served_by": None, "cost_usd": None, "retries": None,
     "timeouts": None, "latency_ms": None, "prompt_hash": None}
 

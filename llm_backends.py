@@ -33,6 +33,7 @@ Usage:
 
 import json
 import os
+import re
 import sys
 import time
 
@@ -352,10 +353,22 @@ def thinking_setting(model, info, think=False, effort=None):
     return (levels[0] if levels else True), True
 
 
+FENCE = re.compile(r"\A\s*```[A-Za-z]*\s*(.*?)\s*```\s*\Z", re.S)
+
+
+def unfenced(content):
+    """(content, whether one surrounding markdown code fence such as ```json ... ``` was stripped)."""
+    m = FENCE.match(content)
+    return (m.group(1), True) if m else (content, False)
+
+
 def move_object(content):
-    """The {"reason": str, "piece": int} object of a JSON reply, or None if it is not one."""
+    """
+    The {"reason": str, "piece": int} object of a JSON reply, or None if it is
+    not one. One surrounding code fence is stripped first.
+    """
     try:
-        obj = json.loads(content)
+        obj = json.loads(unfenced(content)[0])
     except ValueError:
         return None
     if not isinstance(obj, dict):
