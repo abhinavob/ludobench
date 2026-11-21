@@ -11,7 +11,9 @@ instructions of run_all_spots.py, off by default. --shuffle and --outcomes
 change the shown list as in run_games.py; the shuffle draws on the spot's own
 stream, random_streams('<spot id>:<condition>'), and outcomes go only on the
 prompts that show the list. --per-category N asks only N spots of each category
-(see subset), e.g. for a slow thinking model.
+(see subset), e.g. for a slow thinking model. --changed-from FOLDER asks only
+the spots that differ from the same spot in FOLDER, e.g. the spots of
+spots_40_final/ that differ from spots_40_repaired/, under a new --experiment.
 
 Results go to results/<experiment>/<player>[_persona-NAME]/: run.json and
 decisions.jsonl, one record per spot and condition with the fields of a game's
@@ -34,8 +36,8 @@ from decision_log import (RunLog, DEFINITIONS, NO_MODEL, analyse, move_fields, d
 from game_theory_multiplayer_agent import GameTheoryMultiplayerAgent
 from ludo_env import random_streams
 from run_games import (RELEASED, RESULTS, build_agent, check_llm_players, decision_config,
-                       earlier_run, is_llm_spec, llm_setup, player_info, reply_settings,
-                       reply_setup, run_folder)
+                       earlier_run, is_llm_spec, llm_setup, move_outcome_text, player_info,
+                       reply_settings, reply_setup, run_folder)
 from spot_evaluation import SpotEnv
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -101,6 +103,29 @@ def subset(spots, n):
     return [s for s in spots if s["id"] in keep]
 
 
+def changed(spots, folder):
+    """The spots that differ from the spot of the same id in folder."""
+    ref = {s["id"]: s for s in load_spots(folder)}
+    return [s for s in spots if s != ref.get(s["id"])]
+
+
+def derived(spot):
+    """
+    What a run derives from the spot's position: the legal moves, the outcome
+    line --outcomes shows for each, the search player's move, the moves grouped
+    by identical outcome, and the shown list in ascending and --shuffle order.
+    """
+    p, d = spot["current_player"], spot["dice"]
+    env = SpotEnv(spot["players"], board(spot))
+    legal = rules.legal_moves(env.tokens, p, d)
+    shuffled = list(legal)
+    random_streams(f"{spot['id']}:shown")["legal_order"].shuffle(shuffled)
+    return {"legal_moves": legal, "outcome_lines": [move_outcome_text(env, p, d, t) for t in legal],
+            "search_move": GameTheoryMultiplayerAgent(search_depth=SEARCH_DEPTH).select_move(env, p, d, legal),
+            "move_groups": group_moves(env, p, d, legal),
+            "shown": legal, "shown_shuffled": shuffled}
+
+
 def spot_fields(spot, folder, original, persona):
     grudge = spot["scenario"] == "grudge"
     return {"spot_id": spot["id"], "spots_folder": os.path.basename(os.path.normpath(folder)),
@@ -154,11 +179,19 @@ def resume_spots(out_dir, settings, players, todo):
 
 def run_spots(spec, out_dir, folder=DEFAULT_SPOTS, legal=("hidden", "shown"), persona=None,
               legal_order="ascending", move_outcomes=False, per_category=None, think=False,
-              effort=None, requests_per_minute=None, ollama_versions=None):
-    """Ask the spots of `folder` (all, or `per_category`) in each `legal` condition; return the records."""
+              effort=None, requests_per_minute=None, ollama_versions=None, changed_from=None):
+    """
+    Ask the spots of `folder` (all, or `per_category`, and of those only the
+    ones that differ in `changed_from` if given) in each `legal` condition;
+    return the records.
+    """
     spots = load_spots(folder)
     if per_category:
         spots = subset(spots, per_category)
+    if changed_from:
+        spots = changed(spots, changed_from)
+        if not spots:
+            raise ValueError(f"no spot of {folder} differs from {changed_from}")
     original = {s["id"]: s for s in load_spots(ORIGINAL_SPOTS)}
     persona_text = persona_texts()[persona] if persona else None
     players = player_info([spec], [0])
@@ -171,7 +204,9 @@ def run_spots(spec, out_dir, folder=DEFAULT_SPOTS, legal=("hidden", "shown"), pe
                 "move_outcomes": move_outcomes, "persona": persona, "persona_text": persona_text,
                 "search_player": f"gt(d={SEARCH_DEPTH})", "original_rules": False,
                 **reply_settings(reply, think, effort, False)}
-    configs = {c: decision_config(reply, think, effort, False, CONDITIONS[c], 0,
+    if changed_from:
+        settings["changed_from"] = os.path.basename(os.path.normpath(changed_from))
+    configs ={c: decision_config(reply, think, effort, False, CONDITIONS[c], 0,
                                   move_outcomes and CONDITIONS[c], legal_order) for c in legal}
     todo = {(s["id"], CONDITIONS[c]) for s in spots for c in legal}
     meta, done = resume_spots(out_dir, settings, players, todo)
@@ -248,6 +283,8 @@ def main():
     ap.add_argument("--per-category", type=int, metavar="N",
                     help="ask only N spots of each category, a grudge pair counting as one "
                          "(default: all)")
+    ap.add_argument("--changed-from", metavar="FOLDER",
+                    help="ask only the spots that differ from the same spot in FOLDER")
     ap.add_argument("--persona", choices=names, help="add this persona instruction (default: none)")
     ap.add_argument("--think", action="store_true", help="let a thinking model think")
     ap.add_argument("--effort", choices=["low", "medium", "high"], help="reasoning effort level")
@@ -276,7 +313,8 @@ def main():
     try:
         records = run_spots(args.player, out, args.spots, legal, args.persona,
                             "shuffled" if args.shuffle else "ascending", args.outcomes,
-                            args.per_category, args.think, args.effort, args.requests_per_minute, ollama_versions)
+                            args.per_category, args.think, args.effort, args.requests_per_minute, ollama_versions,
+                            args.changed_from)
     except ValueError as e:                          # e.g. a thinking switch the model cannot take
         raise SystemExit(str(e))
     summarise(records)
