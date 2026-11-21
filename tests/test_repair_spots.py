@@ -3,6 +3,8 @@ import glob
 import json
 import os
 
+import pytest
+
 import ludo_rules as R
 import repair_spots as rs
 import review_spots
@@ -92,3 +94,62 @@ def test_review_page_has_every_spot(tmp_path):
     view = next(v for v in data if v["id"] == "cvo_2p_009")
     assert view["moved"] and view["fix"] and view["intent"]
     assert [cell[1] for cell in view["moves"]["rows"][1]] == [False, True, False]
+
+
+FINAL, REVIEW = "spots_40_final", os.path.join("spots_40_final", "review.json")
+
+
+def test_committed_final_copy_is_what_review_builds(tmp_path):
+    rs.build_final(SRC, REVIEW, str(tmp_path))
+    names = sorted(os.listdir(tmp_path))
+    assert names == sorted(n for n in os.listdir(FINAL) if n != "review.json")
+    for name in names:
+        assert text(os.path.join(FINAL, name)) == text(tmp_path / name), name
+
+
+def test_final_copy_keeps_every_spot_and_applies_the_review():
+    original, repaired, final = spots(SRC), spots(OUT), spots(FINAL)
+    decisions = json.load(open(REVIEW, encoding="utf-8"))["spots"]
+    assert list(final) == list(original)
+    for sid, spot in final.items():
+        d = decisions.get(sid, {"decision": "keep"})
+        assert spot == (rs.reviewed(original[sid], d["fix"]) if d["decision"] == "reject" else repaired[sid])
+        if spot["scenario"] == "grudge":
+            twin = final[sid[:-1] + ("b" if sid.endswith("a") else "a")]
+            assert (twin["dice"], twin["tokens"]) == (spot["dice"], spot["tokens"])
+    log = json.load(open(os.path.join(FINAL, "changes.json"), encoding="utf-8"))
+    assert {e["id"] for e in log["spots"]} == {i for i in final if final[i] != original[i]}
+    assert sum(e["source"] == "review" for e in log["spots"]) == 31
+    assert all(not e["check"] for e in log["spots"])
+    e = next(e for e in log["spots"] if e["id"] == "safe_2p_055")
+    assert e["dice"] == {"from": 3, "to": 2} and not e["same_as_repaired"]
+    assert e["derived"]["legal_moves"] == [0, 1] and e["derived_repaired"]
+
+
+def test_reviewed_fix_must_start_from_the_original():
+    spot = spots(SRC)["safe_2p_055"]
+    fix = {"moved": [{"player": 0, "piece": 0, "from": 17, "to": 19}], "dice": 2}
+    with pytest.raises(ValueError, match="not on 17"):
+        rs.reviewed(spot, fix)
+
+
+def test_full_check_of_the_final_copy():
+    assert set(rs.check_folder(SRC, FINAL)) == {"cvh_4p_033", "cvs_4p_022"}
+
+
+def test_full_check_finds_each_kind_of_change():
+    original, repaired = spots(SRC), spots(OUT)
+    audit = lambda sid, spot: " | ".join(rs.audit(original[sid], spot))
+    # A piece that stays still becomes capturable after a move.
+    assert "after piece 2 moves, piece 1 can be captured" in audit("blocked_4p_021", repaired["blocked_4p_021"])
+    # A threat between two pieces flips direction.
+    assert "P1 piece 0 could capture P0 piece 1; now the reverse" in audit("safe_3p_086",
+                                                                           repaired["safe_3p_086"])
+    # A piece placed on a safe square, and two players on one non-safe square.
+    note = rs.reviewed(original["cvs_4p_031"], {"moved": [{"player": 2, "piece": 0, "from": 19, "to": 34}]})
+    assert "P2 piece 0 starts on safe square 34" in audit("cvs_4p_031", note)
+    assert "two players share non-safe square 27" in audit("svo_4p_011", original["svo_4p_011"])
+    # A piece off our route, and a move whose outcome type changes.
+    assert "off our route" in audit("home_entry_2p_067", original["home_entry_2p_067"])
+    assert "home_entry now" in audit("cvo_2p_009", original["cvo_2p_009"])
+    assert audit("capture_2p_002", original["capture_2p_002"]) == ""
