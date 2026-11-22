@@ -8,7 +8,14 @@ and ours, marking where ours differs; the cause, the fix and the check. Arrows s
 through the spots, K keeps and R rejects; choices and notes are kept in the
 browser and saved to a JSON file with Save.
 
+With --proposals, the page also has a Proposals section (the last choice of
+the status filter): each proposed fix to spots_40_final/ with three boards
+(original, current, proposed), the moves under each, the reason, the exact
+changes and the full check. Its choices are kept apart and saved to
+proposals_review.json.
+
     python review_spots.py                 # after repair_spots.py
+    python review_spots.py --proposals spots_40_final/proposals.json
 """
 import argparse
 import glob
@@ -67,7 +74,45 @@ def spot_view(spot, entry, intent):
     }
 
 
-def build(src, out_path):
+def changes_text(current, proposed):
+    """The exact piece and dice changes from current to proposed."""
+    out = [f"dice {current['dice']} -> {proposed['dice']}"] if proposed["dice"] != current["dice"] else []
+    out += [f"P{m['player']} piece {m['piece']}: {rs.where(m['player'], m['from'])} -> "
+            f"{rs.where(m['player'], m['to'])}" for m in rs.moves_between(current, proposed)]
+    return "; ".join(out)
+
+
+def proposal_view(original, current, proposal, file, intent):
+    """A proposed fix: the original, current and proposed boards and what each piece does in each."""
+    proposed = rs.reviewed(current, proposal["fix"])
+    p, players = current["current_player"], current["players"]
+    versions = [(original, True), (current, False), (proposed, False)]
+    cols = [rs.pieces(rs.board(s), players, p, s["dice"], o) for s, o in versions]
+    return {
+        "id": current["id"], "file": file, "category": current["scenario"], "intent": intent,
+        "note": current["note"], "history": current.get("history_text"), "status": "proposal",
+        "kind": proposal["kind"], "reason": proposal["reason"],
+        "changes": changes_text(current, proposed), "flags": [],
+        "audit": {"current": rs.audit(original, current), "proposed": rs.audit(original, proposed)},
+        "mover": p, "dice": [s["dice"] for s, _ in versions], "players": players,
+        "moved": [[m["player"], m["piece"]] for m in rs.moves_between(current, proposed)],
+        "titles": ["Original (spots_40)", "Current (spots_40_final)", "Proposed"],
+        "boards": [layout(rs.board(s)) for s, _ in versions],
+        "moves": {"columns": ["original rules", "ours, current", "ours, proposed"],
+                  "rows": [[[rs.describe(p, col[i]), not rs.same(cols[0][i], col[i])] for col in cols]
+                           for i in range(len(current["tokens"][str(p)]))]},
+    }
+
+
+def proposal_views(src, final, path, docs):
+    with open(path, encoding="utf-8") as f:
+        proposals = json.load(f)["spots"]
+    original = {s["id"]: s for spots, _ in rs.read_spots(src).values() for s in spots}
+    return [proposal_view(original[s["id"]], s, proposals[s["id"]], name, docs.get(name, ""))
+            for name, (spots, _) in rs.read_spots(final).items() for s in spots if s["id"] in proposals]
+
+
+def build(src, out_path, proposals=None, final="spots_40_final"):
     data, docs = [], intents()
     for path in sorted(glob.glob(os.path.join(src, "spots_*.json"))):
         for spot in json.load(open(path, encoding="utf-8")):
@@ -77,7 +122,8 @@ def build(src, out_path):
     geometry = {"track": board_render.TRACK, "safe": sorted(rules.SAFE_SQUARES),
                 "home": {q: board_render.HOME_COORDS[q] for q in range(4)},
                 "starts": rules.START_POSITIONS, "bases": board_render.BASE_ANCHOR}
-    payload = json.dumps({"spots": data, "geometry": geometry}).replace("</", "<\\/")
+    extra = proposal_views(src, final, proposals, docs) if proposals else []
+    payload = json.dumps({"spots": data, "proposals": extra, "geometry": geometry}).replace("</", "<\\/")
     os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(PAGE.replace("__DATA__", payload))
@@ -152,19 +198,30 @@ textarea { width:100%; min-height:60px; font:inherit; color:var(--ink); backgrou
 <script id="data" type="application/json">__DATA__</script>
 <script>
 const DATA = JSON.parse(document.getElementById("data").textContent);
-const G = DATA.geometry, SPOTS = DATA.spots, KEY = "ludobench-spot-review";
+const G = DATA.geometry, SPOTS = DATA.spots, PROPOSALS = DATA.proposals || [];
 const COLORS = ["var(--p0)", "var(--p1)", "var(--p2)", "var(--p3)"];
-let review = {};
-try { review = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (e) {}
+// The 85 reviewed spots and the proposals keep separate choices and save files.
+const SECTIONS = {
+  spots: {key: "ludobench-spot-review", file: "spot_review.json",
+          about: "Choices made on review/spots.html for spots_40_repaired/", choices: {}},
+  proposals: {key: "ludobench-proposal-review", file: "proposals_review.json",
+              about: "Choices made on review/spots.html (Proposals) for spots_40_final/proposals.json", choices: {}},
+};
+for (const sec of Object.values(SECTIONS)) {
+  try { sec.choices = JSON.parse(localStorage.getItem(sec.key) || "{}"); } catch (e) {}
+}
 let shown = [], at = 0;
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const section = () => SECTIONS[$("status").value === "proposals" ? "proposals" : "spots"];
 
-function persist() { try { localStorage.setItem(KEY, JSON.stringify(review)); } catch (e) {} }
+function persist() { const sec = section(); try { localStorage.setItem(sec.key, JSON.stringify(sec.choices)); } catch (e) {} }
 
 function matches(s) {
   const cat = $("cat").value, st = $("status").value;
   if (cat !== "all" && s.category !== cat) return false;
+  if (st === "proposals") return true;
+  const review = SECTIONS.spots.choices;
   if (st === "attention") return s.status !== "unchanged" || s.flags.length > 0;
   if (st === "flagged") return s.flags.length > 0;
   if (st === "unreviewed") return !(review[s.id] && review[s.id].decision);
@@ -173,7 +230,7 @@ function matches(s) {
 
 function refilter() {
   const current = shown[at];
-  shown = SPOTS.filter(matches);
+  shown = ($("status").value === "proposals" ? PROPOSALS : SPOTS).filter(matches);
   at = Math.max(0, shown.indexOf(current));
   draw();
 }
@@ -213,68 +270,80 @@ function svgBoard(pieces, s, after) {
   return out + "</svg>";
 }
 
+function checkText(why) { return why.length ? "fails: " + why.join("; ") : "passes"; }
+
 function draw() {
-  const total = SPOTS.length, done = SPOTS.filter(s => review[s.id] && review[s.id].decision).length;
-  const doneHere = shown.filter(s => review[s.id] && review[s.id].decision).length;
+  const choices = section().choices, pool = $("status").value === "proposals" ? PROPOSALS : SPOTS;
+  const done = pool.filter(s => choices[s.id] && choices[s.id].decision).length;
+  const doneHere = shown.filter(s => choices[s.id] && choices[s.id].decision).length;
   $("progress").textContent = shown.length
-    ? `${at + 1} / ${shown.length} shown · reviewed ${doneHere} of these, ${done} of ${total} overall` : "";
+    ? `${at + 1} / ${shown.length} shown · reviewed ${doneHere} of these, ${done} of ${pool.length} overall` : "";
   if (!shown.length) { $("main").innerHTML = `<div class="empty">No spot matches these filters.</div>`; return; }
-  const s = shown[at], r = review[s.id] || {};
+  const s = shown[at], r = choices[s.id] || {}, proposal = s.status === "proposal";
   const head = s.moves.columns.map(c => `<th>${esc(c)}</th>`).join("");
   const rows = s.moves.rows.map((row, i) => `<tr><td>piece ${i}</td>${
     row.map(([text, differs]) => `<td class="${differs ? "diff" : ""}">${esc(text)}</td>`).join("")}</tr>`).join("");
-  const check = s.check.passed ? (s.status === "repaired" ? "passes after the fix" : "passes as given")
+  const titles = s.titles || ["Original", s.status === "repaired" ? "Repaired"
+    : s.status === "excluded" ? "Excluded (no fix)" : "Unchanged"];
+  const boards = s.boards.map((b, k) => `<div class="board"><h2>${esc(titles[k])}${
+    proposal ? ` · dice ${s.dice[k]}` : ""}</h2>${svgBoard(b, s, k === s.boards.length - 1)}</div>`).join("");
+  const dice = proposal ? (s.dice[1] === s.dice[2] ? `dice ${s.dice[1]}` : `dice ${s.dice[1]} now, ${s.dice[2]} proposed`)
+    : `dice ${s.dice}`;
+  const check = proposal ? "" : s.check.passed ? (s.status === "repaired" ? "passes after the fix" : "passes as given")
     : "fails: " + s.check.failed_on.join("; ");
+  const details = proposal ? `
+      <b>Reason</b> (${esc(s.kind)})<ul><li>${esc(s.reason)}</li></ul>
+      <b>Proposed changes</b><ul><li>${esc(s.changes)}</li></ul>
+      <b>Full check</b>: current ${esc(checkText(s.audit.current))}; proposed ${esc(checkText(s.audit.proposed))}` : `
+      ${s.cause.length ? `<b>Cause</b><ul>${s.cause.map(c => `<li>${esc(c)}</li>`).join("")}</ul>` : ""}
+      ${s.fix ? `<b>Fix</b><ul><li>${esc(s.fix)}</li></ul>` : ""}
+      <b>Check</b>: ${esc(check)}`;
   $("main").innerHTML = `
     <div class="title"><h1>${esc(s.id)}</h1>
-      <span class="badge ${s.status}">${s.status}</span>
+      <span class="badge ${s.status}">${proposal ? "proposal: " + esc(s.kind) : s.status}</span>
       ${s.flags.map(f => `<span class="badge">${esc(f)}</span>`).join("")}
       ${r.decision ? `<span class="badge ${r.decision}">${r.decision === "keep" ? "kept" : "rejected"}</span>` : ""}</div>
     <div class="about"><b>${esc(s.category)}</b>: ${esc(s.intent)}<br>
       <b>Note:</b> ${esc(s.note)}${s.history ? `<br><b>History:</b> ${esc(s.history)}` : ""}<br>
-      <b>P${s.mover} to move, dice ${s.dice}</b> · players ${s.players.join(", ")} · ${esc(s.file)}</div>
-    <div class="boards">
-      <div class="board"><h2>Original</h2>${svgBoard(s.boards[0], s, false)}</div>
-      <div class="board"><h2>${s.status === "repaired" ? "Repaired" : s.status === "excluded" ? "Excluded (no fix)" : "Unchanged"}</h2>${svgBoard(s.boards[1], s, true)}</div>
-    </div>
+      <b>P${s.mover} to move, ${dice}</b> · players ${s.players.join(", ")} · ${esc(s.file)}</div>
+    <div class="boards">${boards}</div>
     <div class="panel"><table><thead><tr><th></th>${head}</tr></thead><tbody>${rows}</tbody></table></div>
-    <div class="panel">
-      ${s.cause.length ? `<b>Cause</b><ul>${s.cause.map(c => `<li>${esc(c)}</li>`).join("")}</ul>` : ""}
-      ${s.fix ? `<b>Fix</b><ul><li>${esc(s.fix)}</li></ul>` : ""}
-      <b>Check</b>: ${esc(check)}
+    <div class="panel">${details}
     </div>
     <div class="panel"><label for="note"><b>Notes</b></label>
       <textarea id="note" placeholder="Anything to remember about this spot">${esc(r.note || "")}</textarea>
       <div class="keys">&larr; &rarr; previous / next · K keep · R reject · choices are kept in this browser; Save writes them to a file</div></div>`;
   $("note").addEventListener("input", e => {
-    review[s.id] = Object.assign(review[s.id] || {}, {note: e.target.value}); persist();
+    choices[s.id] = Object.assign(choices[s.id] || {}, {note: e.target.value}); persist();
   });
 }
 
 function decide(d) {
   if (!shown.length) return;
-  const id = shown[at].id;
-  review[id] = Object.assign(review[id] || {}, {decision: d}); persist();
+  const id = shown[at].id, choices = section().choices;
+  choices[id] = Object.assign(choices[id] || {}, {decision: d}); persist();
   if ($("status").value === "unreviewed") { refilter(); return; }
   if (at < shown.length - 1) at++;
   draw();
 }
 
 async function save() {
-  const body = JSON.stringify({about: "Choices made on review/spots.html for spots_40_repaired/",
-                               spots: review}, null, 1);
+  const sec = section();
+  const body = JSON.stringify({about: sec.about, spots: sec.choices}, null, 1);
   try {
     if (window.showSaveFilePicker) {
-      const h = await showSaveFilePicker({suggestedName: "spot_review.json",
+      const h = await showSaveFilePicker({suggestedName: sec.file,
         types: [{description: "JSON", accept: {"application/json": [".json"]}}]});
       const w = await h.createWritable(); await w.write(body); await w.close(); return;
     }
   } catch (e) { if (e.name === "AbortError") return; }
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([body], {type: "application/json"}));
-  a.download = "spot_review.json"; a.click(); URL.revokeObjectURL(a.href);
+  a.download = sec.file; a.click(); URL.revokeObjectURL(a.href);
 }
 
+if (PROPOSALS.length) $("status").insertAdjacentHTML("beforeend",
+  `<option value="proposals">Proposals (${PROPOSALS.length})</option>`);
 $("cat").innerHTML = `<option value="all">all categories</option>` +
   [...new Set(SPOTS.map(s => s.category))].map(c => `<option>${c}</option>`).join("");
 $("cat").onchange = $("status").onchange = () => { at = 0; shown = []; refilter(); };
@@ -286,7 +355,7 @@ $("save").onclick = save;
 $("load").onclick = () => $("file").click();
 $("file").onchange = async e => {
   const f = e.target.files[0]; if (!f) return;
-  try { Object.assign(review, JSON.parse(await f.text()).spots || {}); persist(); draw(); }
+  try { Object.assign(section().choices, JSON.parse(await f.text()).spots || {}); persist(); draw(); }
   catch (err) { alert("Not a saved review file: " + err.message); }
   e.target.value = "";
 };
@@ -297,9 +366,12 @@ document.addEventListener("keydown", e => {
   else if (e.key === "k" || e.key === "K") decide("keep");
   else if (e.key === "r" || e.key === "R") decide("reject");
 });
+if (location.hash === "#proposals" && PROPOSALS.length) { $("status").value = "proposals"; refilter(); }
+else {
 const linked = SPOTS.findIndex(s => s.id === decodeURIComponent(location.hash.slice(1)));
 if (linked >= 0) { $("status").value = "all"; shown = SPOTS.filter(matches); at = shown.indexOf(SPOTS[linked]); draw(); }
 else refilter();
+}
 </script>
 </body></html>
 """
@@ -309,9 +381,14 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0].strip())
     ap.add_argument("--src", default="spots_40")
     ap.add_argument("--out", default=os.path.join("review", "spots.html"))
+    ap.add_argument("--proposals", metavar="FILE",
+                    help="add a Proposals section with the proposed fixes in FILE")
+    ap.add_argument("--final", default="spots_40_final",
+                    help="the folder the proposals change (default: spots_40_final)")
     args = ap.parse_args()
-    data = build(args.src, args.out)
-    print(f"{len(data)} spots -> {args.out}")
+    data = build(args.src, args.out, args.proposals, args.final)
+    extra = f" and {len(json.load(open(args.proposals, encoding='utf-8'))['spots'])} proposals"         if args.proposals else ""
+    print(f"{len(data)} spots{extra} -> {args.out}")
 
 
 if __name__ == "__main__":

@@ -102,7 +102,7 @@ FINAL, REVIEW = "spots_40_final", os.path.join("spots_40_final", "review.json")
 def test_committed_final_copy_is_what_review_builds(tmp_path):
     rs.build_final(SRC, REVIEW, str(tmp_path))
     names = sorted(os.listdir(tmp_path))
-    assert names == sorted(n for n in os.listdir(FINAL) if n != "review.json")
+    assert names == sorted(n for n in os.listdir(FINAL) if n not in ("review.json", "proposals.json"))
     for name in names:
         assert text(os.path.join(FINAL, name)) == text(tmp_path / name), name
 
@@ -153,3 +153,20 @@ def test_full_check_finds_each_kind_of_change():
     assert "off our route" in audit("home_entry_2p_067", original["home_entry_2p_067"])
     assert "home_entry now" in audit("cvo_2p_009", original["cvo_2p_009"])
     assert audit("capture_2p_002", original["capture_2p_002"]) == ""
+
+
+def test_review_page_has_a_proposals_section(tmp_path):
+    review_spots.build(SRC, str(tmp_path / "spots.html"), os.path.join(FINAL, "proposals.json"), FINAL)
+    page = text(tmp_path / "spots.html")
+    views = review_spots.proposal_views(SRC, FINAL, os.path.join(FINAL, "proposals.json"),
+                                        review_spots.intents())
+    assert len(views) == 13 and "proposals_review.json" in page and '"proposals": [{' in page
+    for v in views:
+        assert len(v["boards"]) == 3 and len(v["moves"]["columns"]) == 3 and v["changes"] and v["reason"]
+        assert v["audit"]["proposed"] == []
+        assert bool(v["audit"]["current"]) == (v["kind"] == "check")
+    v = next(v for v in views if v["id"] == "cvs_4p_022")
+    assert v["dice"] == [1, 1, 2] and v["changes"].startswith("dice 1 -> 2; P2 piece 0: square 29 -> square 28")
+    proposed = {(json.dumps(v["boards"][2]), v["dice"][2]) for v in views}
+    final = {(json.dumps(review_spots.layout(rs.board(s))), s["dice"]) for s in spots(FINAL).values()}
+    assert len(proposed) == 13 and not proposed & final
