@@ -552,6 +552,8 @@ class GameLog:
         model = self._model_fields(player, skipped)
         info = self.run.players[player]
         config = dict(self.run.config)
+        if "effort" in info:                          # the effort this player got
+            config["effort"] = info["effort"]
         config["num_ctx"] = self.run.num_ctx(
             player, model_replied=model["raw_reply"] is not None)
         rec = decision_record(

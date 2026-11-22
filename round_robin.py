@@ -12,8 +12,9 @@ A pair is one run, seeds 0..games-1, in results/<experiment>/<A>_<B>/. Seating
 k of a larger group is a run on seeds k, k + 6, ... (4 players) in
 results/<experiment>/without-<players left out>/seating-<k>/. Every run.json
 has the seat order (specs) and seeds (seed0, seed_step); games.jsonl has each
-game's players by seat, the roll-off and the first player. --effort applies to
-every LLM player. --dry-run lists the runs without playing.
+game's players by seat, the roll-off and the first player. --effort goes to
+every LLM player whose model takes it, as in run_games.py (run.json records each
+player's). --dry-run lists the runs without playing.
 """
 import argparse
 import itertools
@@ -51,7 +52,7 @@ def main():
     ap.add_argument("--games", type=int, required=True, help="games per pair or group")
     ap.add_argument("--experiment", required=True, help="results go to results/<experiment>/")
     ap.add_argument("--effort", choices=["low", "medium", "high"],
-                    help="reasoning effort of every LLM player, as in run_games.py")
+                    help="reasoning effort of the LLM players that take one, as in run_games.py")
     ap.add_argument("--max-steps", type=int, default=1000)
     ap.add_argument("--dry-run", action="store_true", help="list the runs, play nothing")
     args = ap.parse_args()

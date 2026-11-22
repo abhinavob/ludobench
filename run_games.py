@@ -23,7 +23,7 @@ Switches, each off by default:
     --outcomes            say after the list what each legal move does
     --history N           show the last N moves
     --think               let a thinking model think (off where it can be)
-    --effort high         send a reasoning effort level (models that take levels)
+    --effort high         send a reasoning effort level to the models that take one
     --original-rules      the released LudoBench rules, prompt and reply format
 
 Results go to results/<experiment>/<players>/, the players in seat order and
@@ -51,7 +51,8 @@ from agents import BaseAgent, RandomAgent, HeuristicAgent
 from llm_agent import LLMAgent
 from evaluation import evaluate
 from llm_backends import (make_llm, parse_spec, check_ollama, model_info, move_object,
-                          reason_first, unfenced, thinking_setting, api_model_info, api_reasoning,
+                          reason_first, unfenced, thinking_setting, api_model_info, api_efforts,
+                          api_reasoning,
                           DEFAULT_SYSTEM_PROMPT, DEFAULT_TIMEOUT, TIMEOUT_RETRIES,
                           DEFAULT_SCHEMA_ORDER, REASON_MAX_CHARS, ANSWER_CEILING,
                           THINKING_CEILING, API_CEILING, ANSWER_CONTEXT, THINKING_CONTEXT,
@@ -482,14 +483,22 @@ RELEASED = {"uncapped": False, "max_tokens": None, "no_think": False,
             "structured": False, "schema_order": None, "reason_max_chars": None}
 
 
-def llm_setup(player, original_rules, think, effort, released, requests_per_minute=None):
-    """make_llm arguments for an LLM player, and what run.json records about it."""
+def llm_setup(player, original_rules, think, effort, released, requests_per_minute=None,
+              effort_if_supported=False):
+    """
+    make_llm arguments for an LLM player, and what run.json records about it.
+    With effort_if_supported, an effort the model does not take is left out
+    (the player runs as without it) instead of being an error; the effort the
+    player got is recorded.
+    """
     provider, model, host = player["provider"], player["model"], player["host"]
     if provider in API_PROVIDERS:
         if original_rules or think:
             raise ValueError(f"{player['model_spec']}: --original-rules and --think are for "
                              f"Ollama models; an API model takes --effort")
         info = api_model_info(provider, model)
+        if effort_if_supported and effort not in api_efforts(provider, info):
+            effort = None
         if info["structured_outputs"] is False:
             raise ValueError(f"{provider} lists no structured-output support for {model}")
         extra, thinks = api_reasoning(provider, info, effort)
@@ -508,6 +517,10 @@ def llm_setup(player, original_rules, think, effort, released, requests_per_minu
                     retries=API_RETRIES), record
     info = model_info(host.removesuffix("/v1"), model) if "ollama" in provider else {}
     record = {k: info.get(k) for k in ("digest", "quantization", "parameter_size")}
+    if effort and effort_if_supported:
+        if effort not in (info.get("thinking_values") or []):
+            effort = None
+        record["effort"] = effort
     if original_rules:
         kw = {}
         if released["uncapped"]:
@@ -787,10 +800,13 @@ def run_games(specs, games, seed0, out_dir, include_legal_moves=True, legal_orde
     for pid, player in players.items():
         if player["provider"]:
             llm_kwargs[pid], record = llm_setup(player, original_rules, think, effort, released,
-                                                requests_per_minute)
+                                                requests_per_minute, effort_if_supported=True)
             player.update(record)
         elif player["model_spec"] == "dummy":
             llm_kwargs[pid] = {"structured": released["structured"] or not original_rules}
+    # --effort goes only to the models that take it (recorded per player); none is an error.
+    if effort and not any(p.get("effort") == effort for p in players.values()):
+        raise ValueError(f"no LLM player takes reasoning effort {effort!r}")
     reply = reply_setup(original_rules, think, released)
     # Kept in run.json so a results folder is self-describing. Each LLM player's
     # model version, thinking setting, output ceiling and context are under "players".

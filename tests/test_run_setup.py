@@ -147,7 +147,7 @@ def test_think_turns_thinking_on_with_the_thinking_ceiling_and_context(cli):
 
 
 def test_effort_level_on_a_model_without_levels_is_an_error(cli):
-    with pytest.raises(SystemExit, match="effort levels"):
+    with pytest.raises(SystemExit, match="no LLM player takes reasoning effort .high."):
         cli("--players", "llm:m:1b", "heuristic", "--effort", "high")
 
 

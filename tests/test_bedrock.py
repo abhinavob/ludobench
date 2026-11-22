@@ -17,6 +17,7 @@ KEY = "bedrock-test-secret-456"
 KIMI = "global.moonshotai.kimi-k3.1"
 HAIKU = "au.anthropic.claude-haiku-5-5"
 GPT_OSS = "openai.gpt-oss-20b-1:0"
+GPT_OSS_120B = "openai.gpt-oss-120b-1:0"
 MOVE = '{"reason": "safe square", "piece": 0}'
 CHAT = {"choices": [{"message": {"content": MOVE, "reasoning_content": "brief"},
                      "finish_reason": "stop"}],
@@ -107,6 +108,7 @@ def test_model_ids_and_au_apac_global_profiles_are_accepted():
     (KIMI, "high", {"reasoning_effort": "high"}, True),
     (GPT_OSS, None, {"reasoning_effort": "low"}, True),       # always reasons: its lowest level
     (GPT_OSS, "high", {"reasoning_effort": "high"}, True),
+    (GPT_OSS_120B, "low", {"reasoning_effort": "low"}, True),
     (HAIKU, None, {}, None),                                    # nothing known: nothing sent
 ])
 def test_reasoning_off_and_effort_mapped_to_the_model_s_levels(model, effort, fields, reasons):
@@ -261,3 +263,34 @@ def test_listing_and_test_request(bedrock):
     assert out[-1] == f"reply: {MOVE}" and "reasoning 7" in out[1]
     assert check(f"llm:bedrock/{KIMI}").startswith(
         f"llm:bedrock/{KIMI}: structured outputs sent (chat); reasoning off")
+
+
+def play(tmp_path, name, specs, effort):
+    """One short game; (run.json players, decisions, the requests each model got)."""
+    FakeBedrock.requests = []
+    run_games.run_games(specs, games=1, seed0=0, out_dir=str(tmp_path / name), effort=effort,
+                        max_steps=80)
+    players = json.loads((tmp_path / name / "run.json").read_text(encoding="utf-8"))["players"]
+    with open(tmp_path / name / "decisions.jsonl", encoding="utf-8") as f:
+        decisions = [json.loads(line) for line in f]
+    sent = {}
+    for r in FakeBedrock.requests:
+        sent.setdefault(r["path"].split("/")[2], []).append(
+            {k: v for k, v in r["body"].items() if k != "messages"})
+    return players, decisions, sent
+
+
+def test_effort_goes_only_to_the_models_that_take_it(bedrock, tmp_path):
+    specs = [f"llm:bedrock/{GPT_OSS_120B}", "llm:bedrock/google.gemma-3-12b-it"]
+    players, decisions, sent = play(tmp_path, "low", specs, "low")
+    _, _, plain = play(tmp_path, "plain", ["llm:bedrock/google.gemma-3-12b-it", "heuristic"], None)
+    gpt, gemma = (players[str(p)] for p in run_games.rules.seats(2))
+    assert (gpt["effort"], gpt["reasoning"], gemma["effort"], gemma["reasoning"]) == (
+        "low", {"reasoning_effort": "low"}, None, {})
+    assert all(r["additionalModelRequestFields"] == {"reasoning_effort": "low"}
+               for r in sent[GPT_OSS_120B.replace(":", "%3A")])
+    assert sent["google.gemma-3-12b-it"][0] == plain["google.gemma-3-12b-it"][0]   # as without --effort
+    efforts = {d["model_spec"]: d["config"]["effort"] for d in decisions if not d["skipped"]}
+    assert efforts == {specs[0]: "low", specs[1]: None}
+    with pytest.raises(ValueError, match="no LLM player takes reasoning effort 'low'"):
+        play(tmp_path, "none", ["llm:bedrock/google.gemma-3-12b-it", "heuristic"], "low")

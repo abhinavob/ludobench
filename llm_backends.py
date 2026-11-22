@@ -125,8 +125,8 @@ NVIDIA_REASONING = {
 # - kimi-k3.1 reasons at "max" unless told; "none" switches it off. Converse
 #   passes its reasoning_effort on unchecked, and AWS says to set it through
 #   Chat Completions. In ap-southeast-2 only its global. profile serves it.
-# - gpt-oss-20b always reasons (medium unless told) and takes low, medium and
-#   high; Converse sends the OpenAI fields it does not map in
+# - gpt-oss-20b and gpt-oss-120b always reason (medium unless told) and take
+#   low, medium and high; Converse sends the OpenAI fields it does not map in
 #   additionalModelRequestFields (model-parameters-openai, 2026-11-17).
 # Any other model goes through Converse with no reasoning fields and no schema.
 # "max_tokens": the card's maximum output where it is below API_CEILING, which
@@ -139,6 +139,7 @@ BEDROCK_MODELS = {
         "off": {"reasoning_effort": "none"},
         "efforts": ["low", "medium", "high", "xhigh", "max"]}},
     "openai.gpt-oss-20b-1:0": {"reasoning": {"efforts": ["low", "medium", "high"]}},
+    "openai.gpt-oss-120b-1:0": {"reasoning": {"efforts": ["low", "medium", "high"]}},
     "amazon.nova-pro-v1:0": {"max_tokens": 10000},
     "google.gemma-3-12b-it": {"max_tokens": 8000},
     "google.gemma-3-4b-it": {"max_tokens": 8000},
@@ -290,6 +291,14 @@ def api_model_info(provider, model):
             "reasoning": entry.get("reasoning")}
 
 
+def api_efforts(provider, info):
+    """The reasoning efforts an API lists for a model (api_model_info), lowest first."""
+    reasoning = info["reasoning"] or {}
+    if provider in ("nvidia", "bedrock"):
+        return reasoning.get("efforts", [])
+    return sorted(reasoning.get("supported_efforts") or [], key=EFFORTS.index)
+
+
 def api_reasoning(provider, info, effort=None):
     """
     (extra request fields for the model's reasoning; whether it reasons, None if
@@ -298,14 +307,13 @@ def api_reasoning(provider, info, effort=None):
     NVIDIA's or Bedrock's reasoning_effort or OpenRouter's reasoning.effort; one
     the model does not list is a ValueError.
     """
-    reasoning = info["reasoning"] or {}
+    reasoning, efforts = info["reasoning"] or {}, api_efforts(provider, info)
     if provider in ("nvidia", "bedrock"):
-        off, efforts = reasoning.get("off"), reasoning.get("efforts", [])
+        off = reasoning.get("off")
         field = lambda level: {"reasoning_effort": level}
     else:
         off = ({"reasoning": {"enabled": False}}
                if reasoning and not reasoning.get("mandatory") else None)
-        efforts = sorted(reasoning.get("supported_efforts") or [], key=EFFORTS.index)
         field = lambda level: {"reasoning": {"effort": level}}
     if effort:
         if effort not in efforts:
