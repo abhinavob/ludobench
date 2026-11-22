@@ -102,7 +102,7 @@ FINAL, REVIEW = "spots_40_final", os.path.join("spots_40_final", "review.json")
 def test_committed_final_copy_is_what_review_builds(tmp_path):
     rs.build_final(SRC, REVIEW, str(tmp_path))
     names = sorted(os.listdir(tmp_path))
-    assert names == sorted(n for n in os.listdir(FINAL) if n not in ("review.json", "proposals.json"))
+    assert names == sorted(n for n in os.listdir(FINAL) if n != "review.json")
     for name in names:
         assert text(os.path.join(FINAL, name)) == text(tmp_path / name), name
 
@@ -113,13 +113,13 @@ def test_final_copy_keeps_every_spot_and_applies_the_review():
     assert list(final) == list(original)
     for sid, spot in final.items():
         d = decisions.get(sid, {"decision": "keep"})
-        assert spot == (rs.reviewed(original[sid], d["fix"]) if d["decision"] == "reject" else repaired[sid])
+        assert spot == (rs.reviewed(original[sid], d["fix"]) if "fix" in d else repaired[sid])
         if spot["scenario"] == "grudge":
             twin = final[sid[:-1] + ("b" if sid.endswith("a") else "a")]
             assert (twin["dice"], twin["tokens"]) == (spot["dice"], spot["tokens"])
     log = json.load(open(os.path.join(FINAL, "changes.json"), encoding="utf-8"))
     assert {e["id"] for e in log["spots"]} == {i for i in final if final[i] != original[i]}
-    assert sum(e["source"] == "review" for e in log["spots"]) == 31
+    assert sum(e["source"] == "review" for e in log["spots"]) == 44
     assert all(not e["check"] for e in log["spots"])
     e = next(e for e in log["spots"] if e["id"] == "safe_2p_055")
     assert e["dice"] == {"from": 3, "to": 2} and not e["same_as_repaired"]
@@ -134,7 +134,7 @@ def test_reviewed_fix_must_start_from_the_original():
 
 
 def test_full_check_of_the_final_copy():
-    assert set(rs.check_folder(SRC, FINAL)) == {"cvh_4p_033", "cvs_4p_022"}
+    assert rs.check_folder(SRC, FINAL) == {}
 
 
 def test_full_check_finds_each_kind_of_change():
@@ -156,17 +156,15 @@ def test_full_check_finds_each_kind_of_change():
 
 
 def test_review_page_has_a_proposals_section(tmp_path):
-    review_spots.build(SRC, str(tmp_path / "spots.html"), os.path.join(FINAL, "proposals.json"), FINAL)
+    proposals = tmp_path / "proposals.json"
+    fix = {"dice": 3, "moved": [{"player": 1, "piece": 0, "from": 4, "to": 5}]}
+    proposals.write_text(json.dumps({"spots": {"capture_2p_002": {
+        "kind": "decoy", "reason": "test", "fix": fix}}}), encoding="utf-8")
+    review_spots.build(SRC, str(tmp_path / "spots.html"), str(proposals), FINAL)
     page = text(tmp_path / "spots.html")
-    views = review_spots.proposal_views(SRC, FINAL, os.path.join(FINAL, "proposals.json"),
-                                        review_spots.intents())
-    assert len(views) == 13 and "proposals_review.json" in page and '"proposals": [{' in page
-    for v in views:
-        assert len(v["boards"]) == 3 and len(v["moves"]["columns"]) == 3 and v["changes"] and v["reason"]
-        assert v["audit"]["proposed"] == []
-        assert bool(v["audit"]["current"]) == (v["kind"] == "check")
-    v = next(v for v in views if v["id"] == "cvs_4p_022")
-    assert v["dice"] == [1, 1, 2] and v["changes"].startswith("dice 1 -> 2; P2 piece 0: square 29 -> square 28")
-    proposed = {(json.dumps(v["boards"][2]), v["dice"][2]) for v in views}
-    final = {(json.dumps(review_spots.layout(rs.board(s))), s["dice"]) for s in spots(FINAL).values()}
-    assert len(proposed) == 13 and not proposed & final
+    [v] = review_spots.proposal_views(SRC, FINAL, str(proposals), review_spots.intents())
+    assert "proposals_review.json" in page and '"proposals": [{' in page
+    assert len(v["boards"]) == 3 and len(v["moves"]["columns"]) == 3 and v["reason"] == "test"
+    assert v["dice"] == [2, 2, 3] and v["changes"] == "dice 2 -> 3; P1 piece 0: square 4 -> square 5"
+    assert v["audit"] == {"current": [], "proposed": []}       # 2 + 3 still captures on 5
+    assert v["moved"] == [[1, 0]]

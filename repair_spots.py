@@ -21,8 +21,8 @@ the spots kept as they are but flagged: a single legal move, or pieces of two
 players on one non-safe square.
 
 --review builds the reviewed copy: each spot as repaired here, except that a
-spot whose repair the review rejected gets the review's fix (pieces moved and
-dice set, from the original spot) instead. Its changes.json logs every spot
+spot with a fix in the review (a rejected repair, or a reviewed proposal) gets
+that fix (pieces moved and dice set, from the original spot) instead. Its changes.json logs every spot
 that differs from the original, with the full check and what run_spots.py
 derives from the position. --check runs the full check (audit) on every spot
 of a folder against the original spots and lists those that fail.
@@ -344,9 +344,10 @@ def moves_between(spot, new):
 def build_final(src, review_path, out):
     """
     Write the reviewed copy of src to out: each spot as review() repairs it,
-    or, where the review rejected that repair, with the review's fix. Every
-    spot is kept. Return the change log: one entry per spot that differs from
-    src, with the full check and what run_spots.py derives from it.
+    or, where the review gives a fix (a rejected repair or a reviewed proposal),
+    with that fix. Every spot is kept. Return the change log: one entry per
+    spot that differs from src, with the full check and what run_spots.py
+    derives from it.
     """
     with open(review_path, encoding="utf-8") as f:
         decisions = json.load(f)["spots"]
@@ -356,15 +357,17 @@ def build_final(src, review_path, out):
         for spot in spots:
             decision = decisions.get(spot["id"], {"decision": "keep"})
             _, repaired = review(spot)
-            if decision["decision"] == "reject":
+            if "fix" in decision:                      # a rejected repair, or a reviewed proposal
                 new = reviewed(spot, decision["fix"])
+            elif decision["decision"] != "keep":
+                raise ValueError(f"{spot['id']}: {decision['decision']} without a fix")
             elif repaired is None:
                 raise ValueError(f"{spot['id']}: kept, but repair_spots.py leaves it out")
             else:
                 new = repaired
             kept.append(new)
             boards[spot["id"]] = (new["dice"], new["tokens"])
-            source = "unchanged" if new == spot else "review" if decision["decision"] == "reject" else "repair"
+            source = "unchanged" if new == spot else "review" if "fix" in decision else "repair"
             counts.setdefault(spot["scenario"], dict.fromkeys(("unchanged", "repair", "review"), 0))
             counts[spot["scenario"]][source] += 1
             if source == "unchanged":
@@ -372,7 +375,9 @@ def build_final(src, review_path, out):
             p, players = new["current_player"], new["players"]
             entries.append({
                 "id": spot["id"], "file": name, "category": spot["scenario"], "source": source,
-                "note": decision.get("note"), "applied": decision.get("applied"),
+                "decision": decision["decision"], "proposal": decision.get("proposal"),
+                "reason": decision.get("reason"), "note": decision.get("note"),
+                "applied": decision.get("applied"),
                 "dice": {"from": spot["dice"], "to": new["dice"]} if new["dice"] != spot["dice"] else None,
                 "moved": moves_between(spot, new), "same_as_repaired": new == repaired,
                 "check": audit(spot, new),
