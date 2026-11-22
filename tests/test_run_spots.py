@@ -220,3 +220,30 @@ def test_command_line_per_category(tmp_path, monkeypatch):
     assert sum(i.startswith("grudge") for i in ids) == 2
     with pytest.raises(SystemExit):
         cli(tmp_path, monkeypatch, "--per-category", "0")
+
+
+def test_changed_from_asks_only_the_spots_that_differ(tmp_path, monkeypatch, folder):
+    before = tmp_path / "before"
+    before.mkdir()
+    moved = [dict(SPOTS[i], dice=1) if i == "capture_2p_002" else SPOTS[i] for i in IDS]
+    (before / "spots_test.json").write_text(json.dumps(moved, indent=2), encoding="utf-8")
+    cli(tmp_path, monkeypatch, "--spots", folder, "--changed-from", str(before))
+    out = tmp_path / "results" / "trial" / "m-1b"
+    meta = json.loads((out / "run.json").read_text(encoding="utf-8"))
+    ids = {json.loads(line)["spot_id"] for line in (out / "decisions.jsonl").open(encoding="utf-8")}
+    assert ids == {"capture_2p_002"} and meta["settings"]["spots"] == 1
+    assert meta["settings"]["changed_from"] == "before"
+    with pytest.raises(SystemExit, match="no spot"):
+        cli(tmp_path, monkeypatch, "--spots", folder, "--changed-from", folder)
+    records, _ = run(tmp_path, monkeypatch, folder, name="all")
+    assert "changed_from" not in json.loads((tmp_path / "all" / "run.json").read_text())["settings"]
+
+
+def test_derived_is_what_a_run_records(tmp_path, monkeypatch, folder):
+    records, model = run(tmp_path, monkeypatch, folder, legal=("shown",), legal_order="shuffled",
+                         move_outcomes=True)
+    for rec, prompt in zip(records, model.prompts):
+        d = run_spots.derived(SPOTS[rec["spot_id"]])
+        assert (d["legal_moves"], d["search_move"], d["move_groups"], d["shown_shuffled"]) == (
+            rec["legal_moves"], rec["search_move"], rec["move_groups"], rec["shown_legal_moves"])
+        assert d["shown"] == rec["legal_moves"] and all(line in prompt for line in d["outcome_lines"])
