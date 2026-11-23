@@ -1,6 +1,7 @@
 """run_spots.py: spot prompts as in games (shuffled, with outcomes), history and persona,
 records, rates, resume and the per-category subset."""
 import json
+import os
 import sys
 from collections import Counter
 
@@ -247,3 +248,29 @@ def test_derived_is_what_a_run_records(tmp_path, monkeypatch, folder):
         assert (d["legal_moves"], d["search_move"], d["move_groups"], d["shown_shuffled"]) == (
             rec["legal_moves"], rec["search_move"], rec["move_groups"], rec["shown_legal_moves"])
         assert d["shown"] == rec["legal_moves"] and all(line in prompt for line in d["outcome_lines"])
+
+
+def test_spot_ids_asks_only_the_listed_spots(tmp_path, monkeypatch, folder):
+    ids = tmp_path / "ids.txt"
+    ids.write_text("# a comment\ncapture_2p_002\n\nsvo_4p_004\n", encoding="utf-8")
+    cli(tmp_path, monkeypatch, "--spots", folder, "--spot-ids", str(ids))
+    out = tmp_path / "results" / "trial" / "m-1b"
+    meta = json.loads((out / "run.json").read_text(encoding="utf-8"))
+    asked = [(json.loads(line)["spot_id"], json.loads(line)["config"]["legal_moves_shown"])
+             for line in (out / "decisions.jsonl").open(encoding="utf-8")]
+    assert sorted(asked) == [(i, s) for i in ("capture_2p_002", "svo_4p_004") for s in (False, True)]
+    assert meta["settings"]["spot_ids"] == {"file": "ids.txt", "ids": ["capture_2p_002", "svo_4p_004"]}
+    assert meta["settings"]["spots"] == 2
+    ids.write_text("capture_2p_002\nnot_a_spot\n", encoding="utf-8")
+    with pytest.raises(SystemExit, match="not_a_spot not among the spots asked"):
+        cli(tmp_path / "x", monkeypatch, "--spots", folder, "--spot-ids", str(ids))
+
+
+def test_repeat_list_holds_50_unchanged_spots_of_every_category():
+    ids = run_spots.read_ids(os.path.join(run_spots.HERE, "spots_repeat_50.txt"))
+    final = {s["id"]: s for s in run_spots.load_spots(os.path.join(run_spots.HERE, "spots_40_final"))}
+    with open(os.path.join(run_spots.HERE, "spots_40_final", "changes.json"), encoding="utf-8") as f:
+        changed = {e["id"] for e in json.load(f)["spots"]}
+    assert len(ids) == len(set(ids)) == 50 and not set(ids) & changed
+    assert Counter(final[i]["scenario"] for i in ids) == Counter(
+        {**{c: 4 for c in {s["scenario"] for s in final.values()}}, "grudge": 6})

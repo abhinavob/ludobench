@@ -14,6 +14,8 @@ prompts that show the list. --per-category N asks only N spots of each category
 (see subset), e.g. for a slow thinking model. --changed-from FOLDER asks only
 the spots that differ from the same spot in FOLDER, e.g. the spots of
 spots_40_final/ that differ from spots_40_repaired/, under a new --experiment.
+--spot-ids FILE asks only the spots listed in FILE, one id per line, e.g. to
+ask unchanged spots again and compare with an earlier run.
 
 Results go to results/<experiment>/<player>[_persona-NAME]/: run.json and
 decisions.jsonl, one record per spot and condition with the fields of a game's
@@ -109,6 +111,12 @@ def changed(spots, folder):
     return [s for s in spots if s != ref.get(s["id"])]
 
 
+def read_ids(path):
+    """The spot ids listed in a file, one per line; blank lines and # comments are skipped."""
+    with open(path, encoding="utf-8") as f:
+        return [line.strip() for line in f if line.strip() and not line.lstrip().startswith("#")]
+
+
 def derived(spot):
     """
     What a run derives from the spot's position: the legal moves, the outcome
@@ -179,11 +187,12 @@ def resume_spots(out_dir, settings, players, todo):
 
 def run_spots(spec, out_dir, folder=DEFAULT_SPOTS, legal=("hidden", "shown"), persona=None,
               legal_order="ascending", move_outcomes=False, per_category=None, think=False,
-              effort=None, requests_per_minute=None, ollama_versions=None, changed_from=None):
+              effort=None, requests_per_minute=None, ollama_versions=None, changed_from=None,
+              spot_ids=None):
     """
     Ask the spots of `folder` (all, or `per_category`, and of those only the
-    ones that differ in `changed_from` if given) in each `legal` condition;
-    return the records.
+    ones that differ in `changed_from` if given, and only those listed in the
+    file `spot_ids` if given) in each `legal` condition; return the records.
     """
     spots = load_spots(folder)
     if per_category:
@@ -192,6 +201,13 @@ def run_spots(spec, out_dir, folder=DEFAULT_SPOTS, legal=("hidden", "shown"), pe
         spots = changed(spots, changed_from)
         if not spots:
             raise ValueError(f"no spot of {folder} differs from {changed_from}")
+    if spot_ids:
+        wanted = read_ids(spot_ids)
+        unknown = set(wanted) - {s["id"] for s in spots}
+        if unknown or not wanted:
+            raise ValueError(f"{spot_ids}: {', '.join(sorted(unknown)) or 'no ids'}"
+                             f"{' not among the spots asked' if unknown else ''}")
+        spots = [s for s in spots if s["id"] in set(wanted)]
     original = {s["id"]: s for s in load_spots(ORIGINAL_SPOTS)}
     persona_text = persona_texts()[persona] if persona else None
     players = player_info([spec], [0])
@@ -206,7 +222,9 @@ def run_spots(spec, out_dir, folder=DEFAULT_SPOTS, legal=("hidden", "shown"), pe
                 **reply_settings(reply, think, effort, False)}
     if changed_from:
         settings["changed_from"] = os.path.basename(os.path.normpath(changed_from))
-    configs ={c: decision_config(reply, think, effort, False, CONDITIONS[c], 0,
+    if spot_ids:
+        settings["spot_ids"] = {"file": os.path.basename(spot_ids), "ids": read_ids(spot_ids)}
+    configs = {c: decision_config(reply, think, effort, False, CONDITIONS[c], 0,
                                   move_outcomes and CONDITIONS[c], legal_order) for c in legal}
     todo = {(s["id"], CONDITIONS[c]) for s in spots for c in legal}
     meta, done = resume_spots(out_dir, settings, players, todo)
@@ -285,6 +303,8 @@ def main():
                          "(default: all)")
     ap.add_argument("--changed-from", metavar="FOLDER",
                     help="ask only the spots that differ from the same spot in FOLDER")
+    ap.add_argument("--spot-ids", metavar="FILE",
+                    help="ask only the spots listed in FILE, one id per line")
     ap.add_argument("--persona", choices=names, help="add this persona instruction (default: none)")
     ap.add_argument("--think", action="store_true", help="let a thinking model think")
     ap.add_argument("--effort", choices=["low", "medium", "high"], help="reasoning effort level")
@@ -314,7 +334,7 @@ def main():
         records = run_spots(args.player, out, args.spots, legal, args.persona,
                             "shuffled" if args.shuffle else "ascending", args.outcomes,
                             args.per_category, args.think, args.effort, args.requests_per_minute, ollama_versions,
-                            args.changed_from)
+                            args.changed_from, args.spot_ids)
     except ValueError as e:                          # e.g. a thinking switch the model cannot take
         raise SystemExit(str(e))
     summarise(records)
