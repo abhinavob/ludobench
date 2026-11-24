@@ -15,7 +15,10 @@ prompts that show the list. --per-category N asks only N spots of each category
 the spots that differ from the same spot in FOLDER, e.g. the spots of
 spots_40_final/ that differ from spots_40_repaired/, under a new --experiment.
 --spot-ids FILE asks only the spots listed in FILE, one id per line, e.g. to
-ask unchanged spots again and compare with an earlier run.
+ask unchanged spots again and compare with an earlier run. --ceiling N lowers
+the output-token ceiling (thinking included) below the model's own, e.g. where
+an API reserves credit for a whole ceiling per request; the reasoning fields
+sent stay as they are.
 
 Results go to results/<experiment>/<player>[_persona-NAME]/: run.json and
 decisions.jsonl, one record per spot and condition with the fields of a game's
@@ -188,11 +191,12 @@ def resume_spots(out_dir, settings, players, todo):
 def run_spots(spec, out_dir, folder=DEFAULT_SPOTS, legal=("hidden", "shown"), persona=None,
               legal_order="ascending", move_outcomes=False, per_category=None, think=False,
               effort=None, requests_per_minute=None, ollama_versions=None, changed_from=None,
-              spot_ids=None):
+              spot_ids=None, ceiling=None):
     """
     Ask the spots of `folder` (all, or `per_category`, and of those only the
     ones that differ in `changed_from` if given, and only those listed in the
     file `spot_ids` if given) in each `legal` condition; return the records.
+    `ceiling` lowers the player's output-token ceiling.
     """
     spots = load_spots(folder)
     if per_category:
@@ -212,6 +216,10 @@ def run_spots(spec, out_dir, folder=DEFAULT_SPOTS, legal=("hidden", "shown"), pe
     persona_text = persona_texts()[persona] if persona else None
     players = player_info([spec], [0])
     llm_kwargs, record = llm_setup(players[0], False, think, effort, RELEASED, requests_per_minute)
+    if ceiling is not None:
+        if not 0 < ceiling <= record["ceiling"]:
+            raise ValueError(f"--ceiling must be from 1 to the model's ceiling, {record['ceiling']}")
+        llm_kwargs["max_tokens"] = record["ceiling"] = ceiling
     players[0].update(record)
     reply = reply_setup(False, think, RELEASED)
     settings = {"spots_folder": os.path.basename(os.path.normpath(folder)),
@@ -224,6 +232,8 @@ def run_spots(spec, out_dir, folder=DEFAULT_SPOTS, legal=("hidden", "shown"), pe
         settings["changed_from"] = os.path.basename(os.path.normpath(changed_from))
     if spot_ids:
         settings["spot_ids"] = {"file": os.path.basename(spot_ids), "ids": read_ids(spot_ids)}
+    if ceiling is not None:
+        settings["ceiling"] = ceiling
     configs = {c: decision_config(reply, think, effort, False, CONDITIONS[c], 0,
                                   move_outcomes and CONDITIONS[c], legal_order) for c in legal}
     todo = {(s["id"], CONDITIONS[c]) for s in spots for c in legal}
@@ -306,6 +316,8 @@ def main():
                     help="ask only the spots that differ from the same spot in FOLDER")
     ap.add_argument("--spot-ids", metavar="FILE",
                     help="ask only the spots listed in FILE, one id per line")
+    ap.add_argument("--ceiling", type=int, metavar="N",
+                    help="output-token ceiling, thinking included, below the model's own (default: its own)")
     ap.add_argument("--persona", choices=names, help="add this persona instruction (default: none)")
     ap.add_argument("--think", action="store_true", help="let a thinking model think")
     ap.add_argument("--effort", choices=["low", "medium", "high"], help="reasoning effort level")
@@ -335,7 +347,7 @@ def main():
         records = run_spots(args.player, out, args.spots, legal, args.persona,
                             "shuffled" if args.shuffle else "ascending", args.outcomes,
                             args.per_category, args.think, args.effort, args.requests_per_minute, ollama_versions,
-                            args.changed_from, args.spot_ids)
+                            args.changed_from, args.spot_ids, args.ceiling)
     except ValueError as e:                          # e.g. a thinking switch the model cannot take
         raise SystemExit(str(e))
     summarise(records)

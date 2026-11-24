@@ -266,6 +266,35 @@ def test_spot_ids_asks_only_the_listed_spots(tmp_path, monkeypatch, folder):
         cli(tmp_path / "x", monkeypatch, "--spots", folder, "--spot-ids", str(ids))
 
 
+class KeptArgs(Model):
+    """Model that also keeps the make_llm arguments."""
+
+    def __call__(self, spec, **kwargs):
+        self.kwargs = kwargs
+        return super().__call__(spec)
+
+
+def test_ceiling_lowers_only_the_output_cap_and_is_recorded(tmp_path, monkeypatch, folder):
+    argon = {"structured_outputs": True, "temperature": True,       # reasoning on, efforts only
+             "reasoning": {"mandatory": True, "supported_efforts": ["high", "medium", "low"]}}
+    runs = {}
+    for name, ceiling in (("default", None), ("capped", 1024)):
+        model = KeptArgs()
+        offline(monkeypatch, model)
+        monkeypatch.setattr(run_games, "api_model_info", lambda *a: argon)
+        run_spots.run_spots("llm:openrouter/g/m", str(tmp_path / name), folder, ("shown",), ceiling=ceiling)
+        runs[name] = model.kwargs, json.loads((tmp_path / name / "run.json").read_text(encoding="utf-8"))
+    (kw, meta), (capped, capped_meta) = runs["default"], runs["capped"]
+    assert kw["max_tokens"] == meta["players"]["0"]["ceiling"] == run_games.API_CEILING
+    assert "ceiling" not in meta["settings"]
+    assert capped["max_tokens"] == capped_meta["players"]["0"]["ceiling"] == capped_meta["settings"]["ceiling"] == 1024
+    assert dict(capped, max_tokens=None) == dict(kw, max_tokens=None)
+    assert capped["extra_body"] == {"reasoning": {"effort": "low"}}
+    with pytest.raises(ValueError, match="--ceiling must be from 1 to the model's ceiling"):
+        run_spots.run_spots("llm:openrouter/g/m", str(tmp_path / "x"), folder, ("shown",),
+                            ceiling=run_games.API_CEILING + 1)
+
+
 def test_repeat_list_holds_50_unchanged_spots_of_every_category():
     ids = run_spots.read_ids(os.path.join(run_spots.HERE, "spots_repeat_50.txt"))
     final = {s["id"]: s for s in run_spots.load_spots(os.path.join(run_spots.HERE, "spots_40_final"))}
