@@ -31,7 +31,7 @@ from agents import HeuristicAgent
 SCHEMA_VERSION = 1
 CONTEXT_MODE = "stateless"
 
-AVAILABILITY_KINDS = ("capture", "safe", "home_finish", "bring_out")
+AVAILABILITY_KINDS = ("capture", "safe", "home_finish", "bring_out", "home_entry")
 
 # Written to run.json so a results folder explains its own derived fields.
 DEFINITIONS = {
@@ -48,12 +48,16 @@ DEFINITIONS = {
                 "unreachable); summed over a player's tokens",
     "piece_counts": "home_path excludes finished tokens",
     "action_class": "one label per move, first match of: bring_out, home_finish, "
-                    "home_entry, capture, safe, advance",
+                    "home_entry (here: ends in the home path), capture, safe, "
+                    "advance; kept for comparison with earlier runs, no rate uses "
+                    "it (see availability)",
     "landed_on_safe": "destination is a safe square, bring-outs included (the "
                       "start square is safe); same as the paper's classify_move",
-    "availability": "per kind, the legal token indices whose move achieves it. "
-                    "'safe' uses landed_on_safe, so it includes bring-outs; "
-                    "subtract availability.bring_out.tokens for board moves only",
+    "availability": "per kind, the legal token indices whose move achieves it; a "
+                    "move counts for every kind that applies. 'safe' uses "
+                    "landed_on_safe, so a bring-out is both bring_out and safe. "
+                    "'home_entry': the move takes a token from the main track into "
+                    "its home path (a move inside the home path is not one)",
     "left_piece_exposed": "after the move, the moved token is on a non-safe track "
                           "square that at least one opponent token on the track "
                           "could land on with a single roll of 1-6",
@@ -76,16 +80,22 @@ DEFINITIONS = {
     "reason_first": "in a valid JSON reply, the reason came before the piece in "
                     "the raw text (not every model keeps the schema's order); "
                     "null for any other reply",
+    "fence_stripped": "the raw reply was wrapped in one markdown code fence (```json "
+                      "... ``` or ``` ... ```), which the JSON reply parser strips "
+                      "before parsing; null if no model was asked",
     "completion_tokens": "output tokens the server reported, thinking included",
     "thinking_tokens": "Ollama native: the tokens streamed before the answer's first "
                        "text when the model thought, else 0, counted from the "
                        "stream's logprobs (one per token, whitespace included); an "
-                       "API: the reasoning tokens it reported; null if not counted",
-    "provider": "who served the model: ollama_native, openrouter or nvidia",
+                       "API: the reasoning tokens it reported; null if not counted "
+                       "(Bedrock's Converse reports none)",
+    "provider": "who served the model: ollama_native, openrouter, nvidia, "
+                "bedrock_chat_completions or bedrock_converse",
     "served_by": "the upstream provider OpenRouter routed the request to; null "
-                 "on Ollama and NVIDIA",
+                 "on Ollama, NVIDIA and Bedrock",
     "cost_usd": "US dollars the call cost: OpenRouter's figure, 0 on NVIDIA and "
-                "Ollama; run.json's cost_usd is the run's total",
+                "Ollama, null on Bedrock (it reports none; price its tokens); "
+                "run.json's cost_usd is the run's total of reported costs",
     "retries": "failed attempts retried before the reply (rate limits, server "
                "errors, timeouts, dropped connections, cut-off bodies); they do "
                "not make the reply invalid",
@@ -110,10 +120,36 @@ DEFINITIONS = {
                        "winner, so later places are a ranking, not finishes",
     "turns_to_first_finish": "turn_number of the ply on which any token first "
                              "reached HOME_END; null if none did",
-    "taken_vs_available": "per player: *_available counts decisions where some "
-                          "legal move achieved it; *_taken counts those where "
-                          "the chosen move did",
+    "taken_vs_available": "per player and availability kind: *_available counts "
+                          "decisions where some legal move achieved it; *_taken "
+                          "counts those where the chosen move did",
+    "choice_rates": "over decisions with a valid reply (or a bot's move): per kind, "
+                    "those where a legal move had it and those where the chosen "
+                    "move did. capture, home_entry and finish (home_finish) as in "
+                    "availability; safe: a safe landing that is not a bring-out; "
+                    "open: a bring-out",
 }
+
+# The tokens of each choice-rate kind, from a decision's availability.
+RATE_KINDS = {
+    "capture": lambda a: a["capture"]["tokens"],
+    "safe": lambda a: [t for t in a["safe"]["tokens"] if t not in a["bring_out"]["tokens"]],
+    "open": lambda a: a["bring_out"]["tokens"],
+    "home_entry": lambda a: a["home_entry"]["tokens"],
+    "finish": lambda a: a["home_finish"]["tokens"],
+}
+
+
+def choice_rates(records):
+    """Per RATE_KINDS kind: decisions offering it, decisions choosing it, and the rate (see DEFINITIONS)."""
+    valid = [r for r in records if r["chosen_index"] is not None and not r["was_fallback"]]
+    out = {}
+    for kind, tokens in RATE_KINDS.items():
+        offered = [r for r in valid if tokens(r["availability"])]
+        taken = sum(r["chosen_index"] in tokens(r["availability"]) for r in offered)
+        out[kind] = {"available": len(offered), "taken": taken,
+                     "rate": taken / len(offered) if offered else None}
+    return out
 
 
 def short_hash(text):
@@ -169,7 +205,8 @@ def move_effects(env, player, dice, token_idx):
         action = "advance"
     return {"from": e["from"], "to": e["to"], "action_class": action, "captures": captures,
             "safe": e["safe"], "in_home": e["in_home"], "home_finish": e["home_finish"],
-            "bring_out": e["bring_out"], "capture": bool(captures)}
+            "bring_out": e["bring_out"], "capture": bool(captures),
+            "home_entry": e["home_entry"]}
 
 
 def is_exposed(env, player, pos):
@@ -179,6 +216,81 @@ def is_exposed(env, player, pos):
     return any(rules.destination(opp, q, d, env.original_rules) == pos
                for opp in env.player_ids if opp != player
                for q in env.tokens[opp] for d in range(1, 7))
+
+
+# ---------- the decision record, shared by games and spots ----------
+
+# The model fields of a decision no model made (a bot, or a roll with no legal move).
+NO_MODEL = {
+    "shown_legal_moves": None, "chosen_list_position": None,
+    "raw_reply": None, "parsed_index": None, "parsed_reason": None,
+    "reasoning_text": None, "finish_reason": None, "was_fallback": None,
+    "fallback_cause": None, "prompt_tokens": None, "completion_tokens": None,
+    "reason_chars": None, "reason_first": None, "fence_stripped": None,
+    "thinking_tokens": None, "hit_ceiling": None,
+    "provider": None, "served_by": None, "cost_usd": None, "retries": None,
+    "timeouts": None, "latency_ms": None, "prompt_hash": None}
+
+
+def analyse(env, player, dice, heuristic):
+    """The position before a roll is used: legal moves, what each does, the heuristic's view."""
+    legal = rules.legal_moves(env.tokens, player, dice, env.original_rules)
+    effects = {t: move_effects(env, player, dice, t) for t in legal}
+    return {
+        "player": player, "dice": dice, "legal": legal, "effects": effects,
+        "piece_counts": piece_counts(env), "progress": progress(env),
+        "availability": {
+            kind: {"any": any(e[kind] for e in effects.values()),
+                   "tokens": [t for t, e in effects.items() if e[kind]]}
+            for kind in AVAILABILITY_KINDS},
+        "heuristic_move": heuristic.select_move(env, player, dice, legal) if legal else None,
+        "heuristic_scores": {str(t): v for t, v in
+                             heuristic.scores(env, player, dice, legal).items()},
+    }
+
+
+def move_fields(env, pre, chosen):
+    """The chosen move's fields; env is the position after it. All null if no move was made."""
+    if chosen is None:
+        return {"chosen_index": None, "from_position": None, "to_position": None,
+                "action_class": None, "was_capture": None, "captured_player": None,
+                "captured_token": None, "captures": [], "landed_on_safe": None,
+                "landed_in_home_path": None, "finished_a_token": None,
+                "left_piece_exposed": None}
+    eff = pre["effects"][chosen]
+    first = eff["captures"][0] if eff["captures"] else None
+    return {
+        "chosen_index": chosen, "from_position": eff["from"],
+        "to_position": eff["to"], "action_class": eff["action_class"],
+        "was_capture": eff["capture"],
+        "captured_player": first["player"] if first else None,
+        "captured_token": first["token"] if first else None,
+        "captures": eff["captures"],
+        "landed_on_safe": eff["safe"], "landed_in_home_path": eff["in_home"],
+        "finished_a_token": eff["home_finish"],
+        "left_piece_exposed": is_exposed(env, pre["player"], eff["to"]),
+    }
+
+
+def decision_record(ids, before, env, pre, move, model, config, is_extra_turn=False):
+    """
+    One decisions.jsonl record. ids are its leading fields (run_id ... skipped),
+    before is the board before the move and env the position after it, pre is
+    what analyse() said before the move and move what move_fields() says.
+    """
+    return {
+        **ids,
+        "tokens_before": before, "tokens_after": snapshot(env),
+        "dice": pre["dice"], "legal_moves": pre["legal"], "is_extra_turn": is_extra_turn,
+        "piece_counts_before": pre["piece_counts"],
+        "progress_before": pre["progress"], "progress_after": progress(env),
+        **move,
+        "availability": pre["availability"],
+        "heuristic_move": pre["heuristic_move"],
+        "heuristic_score_per_legal_move": pre["heuristic_scores"],
+        **model,
+        "config": config,
+    }
 
 
 # ---------- environment facts for run.json ----------
@@ -224,10 +336,13 @@ def ollama_num_ctx(base_url, model, timeout=3):
 # ---------- writers ----------
 
 class RunLog:
-    """Owns a run's folder and its three files; `resumed` continues a stopped run."""
+    """
+    Owns a run's folder and its files; `resumed` continues a stopped run. A run
+    of spots (games=False) has no games.jsonl and no game counts.
+    """
 
     def __init__(self, out_dir, run_id, players, settings, config, ollama_versions,
-                 env, resumed=None):
+                 env, resumed=None, games=True):
         os.makedirs(out_dir, exist_ok=True)
         self.dir = out_dir
         self.run_id = run_id
@@ -237,7 +352,8 @@ class RunLog:
         mode = "a" if resumed else "w"
         self._decisions = open(os.path.join(out_dir, "decisions.jsonl"), mode,
                                encoding="utf-8")
-        self._games = open(os.path.join(out_dir, "games.jsonl"), mode, encoding="utf-8")
+        self._games = (open(os.path.join(out_dir, "games.jsonl"), mode, encoding="utf-8")
+                       if games else None)
         if resumed:
             self.meta = resumed
             self.meta.setdefault("resumed_at", []).append(time.strftime("%Y-%m-%dT%H:%M:%S"))
@@ -272,6 +388,8 @@ class RunLog:
             "cost_usd": 0.0,
             "definitions": DEFINITIONS,
         }
+        if not games:
+            del self.meta["games"]
         self.write_meta()
 
     def write_meta(self):
@@ -311,7 +429,8 @@ class RunLog:
         self.meta["finished_at"] = time.strftime("%Y-%m-%dT%H:%M:%S")
         self.write_meta()
         self._decisions.close()
-        self._games.close()
+        if self._games:
+            self._games.close()
 
 
 def _new_player_stats():
@@ -322,13 +441,14 @@ def _new_player_stats():
         "safe_taken": 0, "safe_available": 0,
         "bring_outs_taken": 0, "bring_outs_available": 0,
         "home_finishes_taken": 0, "home_finishes_available": 0,
+        "home_entries_taken": 0, "home_entries_available": 0,
         "exposures": 0, "pieces_lost_after_exposure": 0,
         "dice_counts": {str(d): 0 for d in range(1, 7)},
     }
 
 
 _STAT_KEYS = {"capture": "captures", "safe": "safe", "home_finish": "home_finishes",
-              "bring_out": "bring_outs"}
+              "bring_out": "bring_outs", "home_entry": "home_entries"}
 
 
 class GameLog:
@@ -380,21 +500,7 @@ class GameLog:
 
     def _analyse(self, dice):
         env = self.env
-        player = env.player_ids[env.current_player_idx]
-        legal = env.get_legal_moves(player, dice)
-        effects = {t: move_effects(env, player, dice, t) for t in legal}
-        self._pre = {
-            "player": player, "dice": dice, "legal": legal, "effects": effects,
-            "piece_counts": piece_counts(env), "progress": progress(env),
-            "availability": {
-                kind: {"any": any(e[kind] for e in effects.values()),
-                       "tokens": [t for t, e in effects.items() if e[kind]]}
-                for kind in AVAILABILITY_KINDS},
-            "heuristic_move": (self._heuristic.select_move(env, player, dice, legal)
-                               if legal else None),
-            "heuristic_scores": {str(t): v for t, v in
-                                 self._heuristic.scores(env, player, dice, legal).items()},
-        }
+        self._pre = analyse(env, env.player_ids[env.current_player_idx], dice, self._heuristic)
 
     def _model_fields(self, player, skipped):
         agent = self.agents[player]
@@ -402,18 +508,11 @@ class GameLog:
         model = None if skipped else getattr(agent, "last_decision", None)
         if model is not None:
             agent.last_decision = None            # never reuse for a later ply
-        return model or {
-            "shown_legal_moves": None, "chosen_list_position": None,
-            "raw_reply": None, "parsed_index": None, "parsed_reason": None,
-            "reasoning_text": None, "finish_reason": None, "was_fallback": None,
-            "fallback_cause": None, "prompt_tokens": None, "completion_tokens": None,
-            "reason_chars": None, "reason_first": None, "thinking_tokens": None, "hit_ceiling": None,
-            "provider": None, "served_by": None, "cost_usd": None, "retries": None,
-            "timeouts": None, "latency_ms": None, "prompt_hash": None}
+        return model or NO_MODEL
 
     def _record(self, before):
         env, pre = self.env, self._pre
-        player, dice, legal = pre["player"], pre["dice"], pre["legal"]
+        player, dice = pre["player"], pre["dice"]
         chosen = self._applied
         skipped = chosen is None
         st = self.stats[player]
@@ -422,29 +521,13 @@ class GameLog:
             self.turn_number += 1
         is_extra = player == self.prev_player and self.prev_dice == 6
 
-        move = {"chosen_index": None, "from_position": None, "to_position": None,
-                "action_class": None, "was_capture": None, "captured_player": None,
-                "captured_token": None, "captures": [], "landed_on_safe": None,
-                "landed_in_home_path": None, "finished_a_token": None,
-                "left_piece_exposed": None}
+        move = move_fields(env, pre, chosen)                  # env: position after the move
         st["dice_counts"][str(dice)] += 1
         if skipped:
             st["skipped_turns"] += 1
         else:
             eff = pre["effects"][chosen]
-            exposed = is_exposed(env, player, eff["to"])      # position after the move
-            first = eff["captures"][0] if eff["captures"] else None
-            move = {
-                "chosen_index": chosen, "from_position": eff["from"],
-                "to_position": eff["to"], "action_class": eff["action_class"],
-                "was_capture": eff["capture"],
-                "captured_player": first["player"] if first else None,
-                "captured_token": first["token"] if first else None,
-                "captures": eff["captures"],
-                "landed_on_safe": eff["safe"], "landed_in_home_path": eff["in_home"],
-                "finished_a_token": eff["home_finish"],
-                "left_piece_exposed": exposed,
-            }
+            exposed = move["left_piece_exposed"]
             self.moves_applied += 1
             st["decisions"] += 1
             for kind in AVAILABILITY_KINDS:
@@ -466,7 +549,21 @@ class GameLog:
             if eff["home_finish"] and self.first_finish is None:
                 self.first_finish = (self.ply, self.turn_number)
 
-        progress_after = progress(env)
+        model = self._model_fields(player, skipped)
+        info = self.run.players[player]
+        config = dict(self.run.config)
+        if "effort" in info:                          # the effort this player got
+            config["effort"] = info["effort"]
+        config["num_ctx"] = self.run.num_ctx(
+            player, model_replied=model["raw_reply"] is not None)
+        rec = decision_record(
+            {"run_id": self.run.run_id, "game_id": self.game_id, "seed": self.seed,
+             "ply": self.ply, "turn_number": self.turn_number,
+             "player_id": player, "seat_position": info["seat_position"],
+             "model_spec": info["model_spec"], "host": info["host"], "skipped": skipped},
+            before, env, pre, move, model, config, is_extra)
+
+        progress_after = rec["progress_after"]
         top = max(progress_after, key=lambda p: (progress_after[p], -int(p)))
         if progress_after[top] > 0 and (
                 self.leader is None or progress_after[top] > progress_after[self.leader]):
@@ -474,29 +571,7 @@ class GameLog:
                 self.lead_changes += 1
             self.leader = top
 
-        model = self._model_fields(player, skipped)
-        info = self.run.players[player]
-        config = dict(self.run.config)
-        config["num_ctx"] = self.run.num_ctx(
-            player, model_replied=model["raw_reply"] is not None)
-
-        self.run.write_decision({
-            "run_id": self.run.run_id, "game_id": self.game_id, "seed": self.seed,
-            "ply": self.ply, "turn_number": self.turn_number,
-            "player_id": player, "seat_position": info["seat_position"],
-            "model_spec": info["model_spec"], "host": info["host"],
-            "skipped": skipped,
-            "tokens_before": before, "tokens_after": snapshot(env),
-            "dice": dice, "legal_moves": legal, "is_extra_turn": is_extra,
-            "piece_counts_before": pre["piece_counts"],
-            "progress_before": pre["progress"], "progress_after": progress_after,
-            **move,
-            "availability": pre["availability"],
-            "heuristic_move": pre["heuristic_move"],
-            "heuristic_score_per_legal_move": pre["heuristic_scores"],
-            **model,
-            "config": config,
-        })
+        self.run.write_decision(rec)
         self.prev_player, self.prev_dice = player, dice
         self.ply += 1
 
