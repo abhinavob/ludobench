@@ -3,4 +3,5 @@ openai>=1.0
 numpy>=1.26
 pandas>=2.0
 matplotlib>=3.8
-seaborn>=0.13pytest>=8
+seaborn>=0.13
+pytest>=8
