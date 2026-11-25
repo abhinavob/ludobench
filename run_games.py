@@ -540,7 +540,12 @@ def llm_setup(player, original_rules, think, effort, released, requests_per_minu
                 reason_max_chars=REASON_MAX_CHARS), record
 
 
-def reply_setup(original_rules, think, released):
+def reasoning_off(players):
+    """Whether no LLM player reasons: each had reasoning switched off or does not reason."""
+    return all(p["thinks"] is False for p in players.values() if "thinks" in p)
+
+
+def reply_setup(original_rules, released, players):
     """How LLM players are asked to reply: the released setup with original_rules, else ours."""
     if original_rules:
         reply = dict(released, max_tokens=released["max_tokens"] if released["uncapped"] else 60,
@@ -548,7 +553,7 @@ def reply_setup(original_rules, think, released):
         if not reply["structured"]:
             reply["schema_order"] = None
         return reply
-    return {"uncapped": True, "max_tokens": None, "stop": None, "no_think": not think,
+    return {"uncapped": True, "max_tokens": None, "stop": None, "no_think": reasoning_off(players),
             "structured": True, "schema_order": DEFAULT_SCHEMA_ORDER,
             "reason_max_chars": REASON_MAX_CHARS}
 
@@ -807,7 +812,7 @@ def run_games(specs, games, seed0, out_dir, include_legal_moves=True, legal_orde
     # --effort goes only to the models that take it (recorded per player); none is an error.
     if effort and not any(p.get("effort") == effort for p in players.values()):
         raise ValueError(f"no LLM player takes reasoning effort {effort!r}")
-    reply = reply_setup(original_rules, think, released)
+    reply = reply_setup(original_rules, released, players)
     # Kept in run.json so a results folder is self-describing. Each LLM player's
     # model version, thinking setting, output ceiling and context are under "players".
     settings = {

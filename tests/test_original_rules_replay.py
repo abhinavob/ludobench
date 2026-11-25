@@ -130,9 +130,10 @@ def rerun(run, game_index, tmp_path, monkeypatch):
 def assert_same_plies(logged, replayed, where):
     assert len(replayed) == len(logged), where
     for old, new in zip(logged, replayed):
-        for key, value in old.items():
+        for key, value in old.items():            # fields added to the record since are not compared
             if key not in VOLATILE:
-                assert new[key] == value, f"{where} ply {old['ply']}: {key}"
+                got = {k: new[key][k] for k in value} if key == "availability" else new[key]
+                assert got == value, f"{where} ply {old['ply']}: {key}"
         config = {k: v for k, v in old["config"].items() if k != "num_ctx"}
         assert {k: new["config"][k] for k in config} == config, f"{where} ply {old['ply']}"
 

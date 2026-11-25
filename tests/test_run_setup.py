@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import sys
+from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -215,3 +216,27 @@ def test_watch_shows_the_roll_off_and_every_roll_and_changes_nothing(tmp_path, m
     assert [r.split(" rolled ")[0][1:].split()[0] for r in rolls] == [str(p["player_id"]) for p in plies]
     assert [int(r.split(" rolled ")[1].split()[0]) for r in rolls] == [p["dice"] for p in plies]
     assert shown.count("-> no legal move") == sum(p["skipped"] for p in plies)
+
+
+def test_no_think_and_reasoned_follow_each_players_reasoning(cli, monkeypatch):
+    plain = {"capabilities": ["completion", "thinking"], "thinking_values": [False, True]}
+    always = {"capabilities": ["completion", "thinking"], "thinking_values": [True]}   # cannot switch off
+    monkeypatch.setattr(run_games, "model_info", lambda host, model: always if model == "t:1b" else plain)
+
+    def make_llm(spec, **kw):
+        def call(prompt):
+            call.last_content = json.dumps({"reason": "first legal", "piece": 0})
+            call.last_reasoning = "thought" if spec == "llm:t:1b" else ""
+            return call.last_content
+        call.spec, call.base_url, call.last_content = spec, None, None
+        return call
+    monkeypatch.setattr(run_games, "make_llm", make_llm)
+    run, _, _ = cli("--players", "llm:m:1b", "llm:t:1b", "--games", "1", folder="m-1b_t-1b")
+    assert (run["players"]["0"]["thinks"], run["players"]["2"]["thinks"]) == (False, True)
+    assert run["settings"]["no_think"] is False
+    with open(cli.root / "sandbox" / "m-1b_t-1b" / "decisions.jsonl", encoding="utf-8") as f:
+        asked = [d for d in map(json.loads, f) if d["raw_reply"] is not None]
+    assert {d["model_spec"]: d["config"]["no_think"] for d in asked} == {"llm:m:1b": True, "llm:t:1b": False}
+    n = Counter(d["player_id"] for d in asked)
+    assert run["reasoned"] == {"0": {"replies": n[0], "with_reasoning": 0},
+                               "2": {"replies": n[2], "with_reasoning": n[2]}}

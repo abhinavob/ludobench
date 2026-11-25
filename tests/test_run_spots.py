@@ -274,14 +274,16 @@ class KeptArgs(Model):
         return super().__call__(spec)
 
 
+ARGON = {"structured_outputs": True, "temperature": True,          # reasoning on, efforts only
+         "reasoning": {"mandatory": True, "supported_efforts": ["high", "medium", "low"]}}
+
+
 def test_ceiling_lowers_only_the_output_cap_and_is_recorded(tmp_path, monkeypatch, folder):
-    argon = {"structured_outputs": True, "temperature": True,       # reasoning on, efforts only
-             "reasoning": {"mandatory": True, "supported_efforts": ["high", "medium", "low"]}}
     runs = {}
     for name, ceiling in (("default", None), ("capped", 1024)):
         model = KeptArgs()
         offline(monkeypatch, model)
-        monkeypatch.setattr(run_games, "api_model_info", lambda *a: argon)
+        monkeypatch.setattr(run_games, "api_model_info", lambda *a: ARGON)
         run_spots.run_spots("llm:openrouter/g/m", str(tmp_path / name), folder, ("shown",), ceiling=ceiling)
         runs[name] = model.kwargs, json.loads((tmp_path / name / "run.json").read_text(encoding="utf-8"))
     (kw, meta), (capped, capped_meta) = runs["default"], runs["capped"]
@@ -293,6 +295,28 @@ def test_ceiling_lowers_only_the_output_cap_and_is_recorded(tmp_path, monkeypatc
     with pytest.raises(ValueError, match="--ceiling must be from 1 to the model's ceiling"):
         run_spots.run_spots("llm:openrouter/g/m", str(tmp_path / "x"), folder, ("shown",),
                             ceiling=run_games.API_CEILING + 1)
+
+
+class Paid(Model):
+    """Model whose every reply costs $0.25 and carries 7 thinking tokens."""
+
+    def __call__(self, spec, **_):
+        call = super().__call__(spec)
+        call.last_cost, call.last_thinking_tokens = 0.25, 7
+        return call
+
+
+def test_spot_run_json_has_its_cost_and_whether_the_model_reasoned(tmp_path, monkeypatch, folder):
+    for name, info, off in (("always", ARGON, False),
+                            ("switch", dict(ARGON, reasoning={"mandatory": False}), True)):
+        offline(monkeypatch, Paid())
+        monkeypatch.setattr(run_games, "api_model_info", lambda *a: info)
+        records = run_spots.run_spots("llm:openrouter/g/m", str(tmp_path / name), folder, ("shown",))
+        meta = json.loads((tmp_path / name / "run.json").read_text(encoding="utf-8"))
+        assert meta["cost_usd"] == 0.25 * len(records) == sum(r["cost_usd"] for r in records)
+        assert meta["reasoned"] == {"0": {"replies": len(records), "with_reasoning": len(records)}}
+        assert meta["players"]["0"]["thinks"] is not off
+        assert meta["settings"]["no_think"] is off and all(r["config"]["no_think"] is off for r in records)
 
 
 def test_repeat_list_holds_50_unchanged_spots_of_every_category():

@@ -3,8 +3,9 @@ Ask an LLM for its move in each spot and log every decision as games do.
 
     python run_spots.py --player llm:qwen3:8b --experiment spots
 
-Each spot of the folder (default spots_40_repaired/, see repair_spots.py) is
-asked twice, with the legal-move list hidden and shown (--legal), with the
+Each spot of the folder (default spots_40_final/, the reviewed set; the
+original spots_40/ and the automatic repair spots_40_repaired/ stay available
+through --spots, see repair_spots.py) is asked twice, with the legal-move list hidden and shown (--legal), with the
 standard prompt and reply settings of run_games.py. A grudge spot carries its
 history paragraph (neutral or grudge); --persona adds one of the persona
 instructions of run_all_spots.py, off by default. --shuffle and --outcomes
@@ -47,7 +48,7 @@ from spot_evaluation import SpotEnv
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ORIGINAL_SPOTS = os.path.join(HERE, "spots_40")
-DEFAULT_SPOTS = os.path.join(HERE, "spots_40_repaired")
+DEFAULT_SPOTS = os.path.join(HERE, "spots_40_final")
 CONDITIONS = {"hidden": False, "shown": True}          # name -> legal-move list in the prompt
 SEARCH_DEPTH = 2                                        # as run_all_spots_gt.py
 
@@ -221,7 +222,7 @@ def run_spots(spec, out_dir, folder=DEFAULT_SPOTS, legal=("hidden", "shown"), pe
             raise ValueError(f"--ceiling must be from 1 to the model's ceiling, {record['ceiling']}")
         llm_kwargs["max_tokens"] = record["ceiling"] = ceiling
     players[0].update(record)
-    reply = reply_setup(False, think, RELEASED)
+    reply = reply_setup(False, RELEASED, players)
     settings = {"spots_folder": os.path.basename(os.path.normpath(folder)),
                 "per_category": per_category, "spots": len(spots),
                 "legal_moves": list(legal), "legal_order": legal_order,
@@ -302,7 +303,7 @@ def main():
     ap.add_argument("--player", required=True, metavar="LLM",
                     help="llm:MODEL, llm://HOST[:PORT]/MODEL, llm:openrouter/MODEL, "
                          "llm:nvidia/MODEL or llm:bedrock/MODEL")
-    ap.add_argument("--spots", default=DEFAULT_SPOTS, help="spot folder (default: spots_40_repaired)")
+    ap.add_argument("--spots", default=DEFAULT_SPOTS, help="spot folder (default: spots_40_final)")
     ap.add_argument("--legal", choices=["both", *CONDITIONS], default="both",
                     help="ask with the legal-move list hidden, shown, or both (default)")
     ap.add_argument("--shuffle", action="store_true",

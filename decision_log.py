@@ -95,7 +95,19 @@ DEFINITIONS = {
                  "on Ollama, NVIDIA and Bedrock",
     "cost_usd": "US dollars the call cost: OpenRouter's figure, 0 on NVIDIA and "
                 "Ollama, null on Bedrock (it reports none; price its tokens); "
-                "run.json's cost_usd is the run's total of reported costs",
+                "run.json's cost_usd is the run's total of reported costs (a game "
+                "run's over its finished games, a spot run's over its decisions)",
+    "no_think": "the player's reasoning was off: switched off in what was sent, or "
+                "a model that does not reason (its thinks is false); false if left "
+                "on or not known to be off. run.json's settings: true only if so for "
+                "every LLM player. With original_rules, the released setup's switch",
+    "thinks": "run.json, per LLM player: whether what was sent leaves the model "
+              "reasoning: true (left on, or an effort sent; reasoning holds the "
+              "fields sent), false (switched off, or a model that does not reason), "
+              "null (the API does not say and nothing was sent)",
+    "reasoned": "run.json, per LLM player: its replies and how many carried reasoning "
+                "(thinking tokens or reasoning text), counted from decisions.jsonl "
+                "each time the run stops",
     "retries": "failed attempts retried before the reply (rate limits, server "
                "errors, timeouts, dropped connections, cut-off bodies); they do "
                "not make the reply invalid",
@@ -425,8 +437,30 @@ class RunLog:
                                      for p in rec["per_player"].values())
         self.write_meta()
 
+    def tally(self):
+        """
+        run.json's reasoned per LLM player (a spot run has one, whichever player
+        the spot gives it) and, for a spot run, cost_usd, counted from
+        decisions.jsonl as it stands (a resumed run's dropped plies are gone).
+        """
+        self._decisions.flush()
+        reasoned, cost = {}, 0.0
+        with open(os.path.join(self.dir, "decisions.jsonl"), encoding="utf-8") as f:
+            for rec in map(json.loads, f):
+                if rec["raw_reply"] is None:
+                    continue
+                pid = str(rec["player_id"]) if self._games else next(iter(self.meta["players"]))
+                n = reasoned.setdefault(pid, {"replies": 0, "with_reasoning": 0})
+                n["replies"] += 1
+                n["with_reasoning"] += bool(rec["thinking_tokens"] or rec["reasoning_text"])
+                cost += rec["cost_usd"] or 0
+        self.meta["reasoned"] = reasoned
+        if self._games is None:
+            self.meta["cost_usd"] = cost
+
     def close(self):
         self.meta["finished_at"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+        self.tally()
         self.write_meta()
         self._decisions.close()
         if self._games:
@@ -554,6 +588,8 @@ class GameLog:
         config = dict(self.run.config)
         if "effort" in info:                          # the effort this player got
             config["effort"] = info["effort"]
+        if "thinks" in info and not config["original_rules"]:   # whether its reasoning was off
+            config["no_think"] = info["thinks"] is False
         config["num_ctx"] = self.run.num_ctx(
             player, model_replied=model["raw_reply"] is not None)
         rec = decision_record(
