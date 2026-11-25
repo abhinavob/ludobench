@@ -5,10 +5,10 @@ read-only.
     python analysis/report.py                       # all parts, to results/analysis/
     python analysis/report.py --out DIR --parts main spots
 
-Roots (--root LABEL=FOLDER, repeatable) default to common.DEFAULT_ROOTS: the
-main folder's results, ../LudoBench-work/results, ../LudoBench-bedrock/results
-and ../sharanga_results/results. runs.csv lists every run found; summary.txt the
-headline of each part.
+Runs are read from this repository's results/ (label "main"); --root
+LABEL=FOLDER, repeatable, reads these folders instead, e.g. results copied from
+another machine. A run's key is LABEL:experiment/run. runs.csv lists every run
+found; summary.txt the headline of each part.
 """
 import argparse
 import os
@@ -43,7 +43,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0].strip())
     ap.add_argument("--out", default=os.path.join(REPO, "results", "analysis"))
     ap.add_argument("--root", action="append", metavar="LABEL=FOLDER",
-                    help="a results root (default: the four in common.DEFAULT_ROOTS)")
+                    help="a results folder to read, repeatable (default: main=results)")
     ap.add_argument("--parts", nargs="+", choices=list(PARTS), default=list(PARTS))
     args = ap.parse_args()
     roots = dict(r.split("=", 1) for r in args.root) if args.root else DEFAULT_ROOTS

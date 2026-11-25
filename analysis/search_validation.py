@@ -12,7 +12,7 @@ uniformly from [1 - s, 1 + s], three draws each for s = 0.25 and s = 0.5
   search_spots_agreement.csv  per pair of variants (depths with each other,
                               every weighted variant with depth 2) and
                               category: spots with at least 2 distinct moves
-                              (spots_40_repaired), and the share where both
+                              (spots_40_final), and the share where both
                               choose the same distinct move (Wilson interval)
   search_games.csv            head-to-head 2-player games per pairing on seeds
                               0..N-1, each seed played twice: "as run" puts the
@@ -131,7 +131,7 @@ def agent(spec):
     return GameTheoryMultiplayerAgent(depth) if weights is None else WeightedSearch(depth, weights)
 
 
-def load_spots(folder="spots_40_repaired"):
+def load_spots(folder="spots_40_final"):
     return [s for f in sorted(glob.glob(os.path.join(REPO, folder, "spots_*.json")))
             for s in json.load(open(f, encoding="utf-8"))]
 

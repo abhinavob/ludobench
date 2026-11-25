@@ -4,8 +4,8 @@ Ask an LLM for its move in each spot and log every decision as games do.
     python run_spots.py --player llm:qwen3:8b --experiment spots
 
 Each spot of the folder (default spots_40_final/, the reviewed set; the
-original spots_40/ and the automatic repair spots_40_repaired/ stay available
-through --spots, see repair_spots.py) is asked twice, with the legal-move list hidden and shown (--legal), with the
+original spots_40/ and the automatic repair spots_40_repaired/, which
+repair_spots.py writes, can be asked with --spots) is asked twice, with the legal-move list hidden and shown (--legal), with the
 standard prompt and reply settings of run_games.py. A grudge spot carries its
 history paragraph (neutral or grudge); --persona adds one of the persona
 instructions of run_all_spots.py, off by default. --shuffle and --outcomes

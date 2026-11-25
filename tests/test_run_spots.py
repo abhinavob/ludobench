@@ -1,7 +1,6 @@
 """run_spots.py: spot prompts as in games (shuffled, with outcomes), history and persona,
 records, rates, resume and the per-category subset."""
 import json
-import os
 import sys
 from collections import Counter
 
@@ -317,13 +316,3 @@ def test_spot_run_json_has_its_cost_and_whether_the_model_reasoned(tmp_path, mon
         assert meta["reasoned"] == {"0": {"replies": len(records), "with_reasoning": len(records)}}
         assert meta["players"]["0"]["thinks"] is not off
         assert meta["settings"]["no_think"] is off and all(r["config"]["no_think"] is off for r in records)
-
-
-def test_repeat_list_holds_50_unchanged_spots_of_every_category():
-    ids = run_spots.read_ids(os.path.join(run_spots.HERE, "spots_repeat_50.txt"))
-    final = {s["id"]: s for s in run_spots.load_spots(os.path.join(run_spots.HERE, "spots_40_final"))}
-    with open(os.path.join(run_spots.HERE, "spots_40_final", "changes.json"), encoding="utf-8") as f:
-        changed = {e["id"] for e in json.load(f)["spots"]}
-    assert len(ids) == len(set(ids)) == 50 and not set(ids) & changed
-    assert Counter(final[i]["scenario"] for i in ids) == Counter(
-        {**{c: 4 for c in {s["scenario"] for s in final.values()}}, "grudge": 6})

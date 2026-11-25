@@ -30,8 +30,8 @@ import repair_spots as rs
 BASE_SLOTS = ((-1, -1), (-1, 1), (1, -1), (1, 1))
 
 
-def intents(docs="spot_docs"):
-    """Category file name -> the Intent paragraph of its spot_docs page."""
+def intents(docs=os.path.join("docs", "original", "spot_docs")):
+    """Category file name -> the Intent paragraph of its page in the original release's spot docs."""
     out = {}
     for path in glob.glob(os.path.join(docs, "spots_*.json.txt")):
         m = re.search(r"Intent\n-+\n(.*?)\n\s*\n", open(path, encoding="utf-8").read(), re.S)

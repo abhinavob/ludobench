@@ -1,5 +1,6 @@
 """repair_spots.py: the repaired copy of spots_40/, its change log and the review page."""
 import glob
+import hashlib
 import json
 import os
 
@@ -9,7 +10,9 @@ import ludo_rules as R
 import repair_spots as rs
 import review_spots
 
-SRC, OUT = "spots_40", "spots_40_repaired"
+SRC = "spots_40"
+# spots_40_repaired/ as the runs on it read it; it is not tracked, repair_spots.py rebuilds it.
+REPAIRED_SHA256 = "3584d39b877d295e88f004851c94e100b5ef6c5d8a49c126110a22a9bdb348aa"
 
 
 def spots(folder):
@@ -22,15 +25,23 @@ def text(path):
         return f.read()
 
 
-def test_committed_copy_is_what_repair_spots_builds(tmp_path):
-    rs.build(SRC, str(tmp_path))
+@pytest.fixture(scope="module")
+def OUT(tmp_path_factory):
+    """spots_40_repaired/, as repair_spots.py writes it."""
+    out = tmp_path_factory.mktemp("spots_40_repaired")
+    rs.build(SRC, str(out))
+    return str(out)
+
+
+def test_repair_spots_rebuilds_the_set_the_runs_used(OUT):
     names = sorted(os.listdir(OUT))
-    assert names == sorted(os.listdir(tmp_path)) and "changes.json" in names
+    digest = hashlib.sha256()
     for name in names:
-        assert text(os.path.join(OUT, name)) == text(tmp_path / name), name
+        digest.update(name.encode() + b"\0" + text(os.path.join(OUT, name)).encode())
+    assert "changes.json" in names and digest.hexdigest() == REPAIRED_SHA256
 
 
-def test_every_kept_spot_means_the_same_under_our_rules():
+def test_every_kept_spot_means_the_same_under_our_rules(OUT):
     original, kept = spots(SRC), spots(OUT)
     log = {e["id"]: e for e in json.load(open(os.path.join(OUT, "changes.json")))["spots"]}
     for sid, spot in original.items():
@@ -45,7 +56,7 @@ def test_every_kept_spot_means_the_same_under_our_rules():
         assert (new["tokens"] != spot["tokens"]) == (log.get(sid, {}).get("status") == "repaired")
 
 
-def test_counts_cover_every_spot_and_flags_are_logged():
+def test_counts_cover_every_spot_and_flags_are_logged(OUT):
     log = json.load(open(os.path.join(OUT, "changes.json")))
     assert sum(sum(n.values()) for n in log["counts"].values()) == len(spots(SRC)) == 520
     flagged = {e["id"]: e["flags"] for e in log["spots"] if e["flags"]}
@@ -53,7 +64,7 @@ def test_counts_cover_every_spot_and_flags_are_logged():
     assert sum("pieces of two players on one non-safe square" in f for f in flagged.values()) == 3
 
 
-def test_repairs_fix_the_cause():
+def test_repairs_fix_the_cause(OUT):
     log = {e["id"]: e for e in json.load(open(os.path.join(OUT, "changes.json")))["spots"]}
     # A piece of the mover on the square our route never stops on: one square back.
     assert log["home_entry_2p_067"]["fix"]["moved"] == [
@@ -107,7 +118,7 @@ def test_committed_final_copy_is_what_review_builds(tmp_path):
         assert text(os.path.join(FINAL, name)) == text(tmp_path / name), name
 
 
-def test_final_copy_keeps_every_spot_and_applies_the_review():
+def test_final_copy_keeps_every_spot_and_applies_the_review(OUT):
     original, repaired, final = spots(SRC), spots(OUT), spots(FINAL)
     decisions = json.load(open(REVIEW, encoding="utf-8"))["spots"]
     assert list(final) == list(original)
@@ -137,7 +148,7 @@ def test_full_check_of_the_final_copy():
     assert rs.check_folder(SRC, FINAL) == {}
 
 
-def test_full_check_finds_each_kind_of_change():
+def test_full_check_finds_each_kind_of_change(OUT):
     original, repaired = spots(SRC), spots(OUT)
     audit = lambda sid, spot: " | ".join(rs.audit(original[sid], spot))
     # A piece that stays still becomes capturable after a move.

@@ -15,15 +15,10 @@ its place.
 import csv
 import json
 import os
-import re
 from dataclasses import dataclass, field
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PARENT = os.path.dirname(REPO)
-DEFAULT_ROOTS = {"main": os.path.join(PARENT, "LudoBench-5CBF", "results"),
-                 "work": os.path.join(PARENT, "LudoBench-work", "results"),
-                 "bedrock": os.path.join(PARENT, "LudoBench-bedrock", "results"),
-                 "sharanga": os.path.join(PARENT, "sharanga_results", "results")}
+DEFAULT_ROOTS = {"main": os.path.join(REPO, "results")}
 FINISHED = ("win", "max_steps")
 # Runs left out of every part (they stay listed in runs.csv), by Run.key, with the reason.
 EXCLUDED_RUNS = {
@@ -185,7 +180,3 @@ def figure(**kw):
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     return plt.subplots(**kw)
-
-
-def is_replay(run):
-    return re.search(r"-replay-s\d+$", run.experiment) is not None

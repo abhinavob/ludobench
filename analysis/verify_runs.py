@@ -5,8 +5,8 @@ before and after; for a game also the roll-off, first player, winner, final
 board and roll count; for a spot run the spot's board, dice and player.
 Read-only on the run folders; each commit's code is taken with git archive.
 
-    python analysis/verify_runs.py ../LudoBench-5CBF/results ../sharanga_results/results
-    python analysis/verify_runs.py --unknown-commit 0261653 ../sharanga_results/results
+    python analysis/verify_runs.py results
+    python analysis/verify_runs.py --unknown-commit 0261653 path/to/copied/results
 
 A run whose run.json records no commit (e.g. one copied from another machine)
 is skipped unless --unknown-commit names the commit to replay it with. Prints
