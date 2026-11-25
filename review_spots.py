@@ -8,14 +8,15 @@ and ours, marking where ours differs; the cause, the fix and the check. Arrows s
 through the spots, K keeps and R rejects; choices and notes are kept in the
 browser and saved to a JSON file with Save.
 
-With --proposals, the page also has a Proposals section (the last choice of
-the status filter): each proposed fix to spots_40_final/ with three boards
-(original, current, proposed), the moves under each, the reason, the exact
-changes and the full check. Its choices are kept apart and saved to
+With --proposals FILE, a JSON file of proposed fixes to spots_40_final/
+({"spots": {spot id: {"kind", "reason", "fix"}}}), the page also has a
+Proposals section (the last choice of the status filter): each proposal with
+three boards (original, current, proposed), the moves under each, the reason,
+the exact changes and the full check. Its choices are kept apart and saved to
 proposals_review.json.
 
     python review_spots.py                 # after repair_spots.py
-    python review_spots.py --proposals spots_40_final/proposals.json
+    python review_spots.py --proposals FILE
 """
 import argparse
 import glob
@@ -205,7 +206,7 @@ const SECTIONS = {
   spots: {key: "ludobench-spot-review", file: "spot_review.json",
           about: "Choices made on review/spots.html for spots_40_repaired/", choices: {}},
   proposals: {key: "ludobench-proposal-review", file: "proposals_review.json",
-              about: "Choices made on review/spots.html (Proposals) for spots_40_final/proposals.json", choices: {}},
+              about: "Choices made on review/spots.html (Proposals) for the proposed fixes to spots_40_final/", choices: {}},
 };
 for (const sec of Object.values(SECTIONS)) {
   try { sec.choices = JSON.parse(localStorage.getItem(sec.key) || "{}"); } catch (e) {}
